@@ -6,11 +6,11 @@ import {
   Cpu,
   ClipboardCheck,
   Play,
+  Square,
   Pause,
   Settings,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   ChevronDown,
   ChevronUp,
   LogOut,
@@ -27,10 +27,15 @@ import {
   CloudRain,
   ShieldCheck,
   Radio,
+  Wifi,
+  Bluetooth,
+  Clock,
+  Search,
+  List,
 } from 'lucide-react';
 
 // ============================================================================
-// 1. TIPOS EXACTOS DEL ESQUEMA POSTGRESQL v3.3 (agrostake_v3_3_completo.sql)
+// 1. TIPOS DEL ESQUEMA POSTGRESQL v3.3 (agrostake_v3_3_completo.sql)
 // ============================================================================
 export type UserRole = 'owner' | 'agronomist' | 'viewer';
 export type TransportKind = 'ble' | 'wifi_mqtt';
@@ -76,12 +81,12 @@ interface CropSeed {
   ph_max: number;
   rain_min: number;
   rain_max: number;
-  image: string;
 }
 
 interface TelemetryPoint {
   timeLabel: string;
   measured_at: string;
+  transport: TransportKind;
   soil_temperature_c: number;
   soil_moisture_pct: number;
   soil_ph: number;
@@ -97,7 +102,7 @@ interface ChatMessage {
 }
 
 // ============================================================================
-// 2. SEMILLAS OFICIALES DE TU ARCHIVO SQL (FAO-56 + 6 CULTIVOS + ADVICE_RULES)
+// 2. CATÁLOGOS FAO-56, CULTIVOS DEMO Y REGLAS ADVICE_RULES DEL SQL v3.3
 // ============================================================================
 const SOIL_TEXTURES: Record<SoilTextureCode, SoilWaterCharacteristic> = {
   sand: { texture_code: 'sand', name_es: 'Arena', fc_min: 0.07, fc_max: 0.17, wp_min: 0.02, wp_max: 0.07 },
@@ -108,7 +113,6 @@ const SOIL_TEXTURES: Record<SoilTextureCode, SoilWaterCharacteristic> = {
   clay: { texture_code: 'clay', name_es: 'Arcilla', fc_min: 0.32, fc_max: 0.40, wp_min: 0.20, wp_max: 0.24 },
 };
 
-// Vista SQL v_crop_moisture_range (FAO-56 Tabla 19 y 22)
 function computeFao56MoistureRange(depletionP: number, textureCode: SoilTextureCode): { minPct: number; maxPct: number } {
   const w = SOIL_TEXTURES[textureCode] || SOIL_TEXTURES.loam;
   const fc = (w.fc_min + w.fc_max) / 2;
@@ -137,7 +141,6 @@ const DB_CROPS: CropSeed[] = [
     ph_max: 7.0,
     rain_min: 50.0,
     rain_max: 120.0,
-    image: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=600&q=80',
   },
   {
     id: 2,
@@ -157,13 +160,12 @@ const DB_CROPS: CropSeed[] = [
     ph_max: 7.0,
     rain_min: 40.0,
     rain_max: 100.0,
-    image: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?auto=format&fit=crop&w=600&q=80',
   },
   {
     id: 3,
     common_name_es: 'Tomate',
     scientific_name: 'Solanum lycopersicum',
-    dataset_label: null,
+    dataset_label: 'tomato',
     category: 'Hortaliza',
     cycle_days_min: 90,
     cycle_days_max: 140,
@@ -177,13 +179,12 @@ const DB_CROPS: CropSeed[] = [
     ph_max: 6.8,
     rain_min: 50.0,
     rain_max: 110.0,
-    image: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=600&q=80',
   },
   {
     id: 4,
     common_name_es: 'Sorgo',
     scientific_name: 'Sorghum bicolor',
-    dataset_label: null,
+    dataset_label: 'sorghum',
     category: 'Cereal',
     cycle_days_min: 100,
     cycle_days_max: 130,
@@ -197,13 +198,12 @@ const DB_CROPS: CropSeed[] = [
     ph_max: 7.5,
     rain_min: 40.0,
     rain_max: 100.0,
-    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=600&q=80',
   },
   {
     id: 5,
     common_name_es: 'Trigo',
     scientific_name: 'Triticum aestivum',
-    dataset_label: null,
+    dataset_label: 'wheat',
     category: 'Cereal',
     cycle_days_min: 110,
     cycle_days_max: 150,
@@ -217,7 +217,6 @@ const DB_CROPS: CropSeed[] = [
     ph_max: 7.5,
     rain_min: 40.0,
     rain_max: 90.0,
-    image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80',
   },
   {
     id: 6,
@@ -237,11 +236,9 @@ const DB_CROPS: CropSeed[] = [
     ph_max: 7.0,
     rain_min: 120.0,
     rain_max: 300.0,
-    image: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&w=600&q=80',
   },
 ];
 
-// Tabla SQL advice_rules (Secciones 11 y 18 del script SQL)
 function formatAdviceRule(variable: VariableCode, status: 'below' | 'above', current: number, target: number): string {
   const c = current.toFixed(1);
   const t = target.toFixed(1);
@@ -269,18 +266,22 @@ function formatAdviceRule(variable: VariableCode, status: 'below' | 'above', cur
   return `Lluvia acumulada alta (${c} mm): vigilar encharcamiento y mejorar el drenaje; el objetivo es cerca de ${t} mm.`;
 }
 
-// Cálculo gradual soft-boundary (0 a 100) para ml_suitability_score
 function calcSoftVariableScore(val: number, min: number, max: number, tolerance: number): number {
   if (val >= min && val <= max) return 100;
   const dist = val < min ? min - val : val - max;
   return Math.max(0, Math.round((1 - dist / tolerance) * 100));
 }
 
+function formatSeconds(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 // ============================================================================
-// 3. COMPONENTE MINIATURA DE BATERÍA (ESQUINA SUPERIOR DERECHA)
+// 3. COMPONENTE MINIATURA DE BATERÍA
 // ============================================================================
 const MinimalBatteryStatus: React.FC<{ batteryV: number }> = ({ batteryV }) => {
-  // Convierte voltaje LiPo (3.3V - 4.2V) a porcentaje 0-100%
   const pct = Math.min(100, Math.max(5, Math.round(((batteryV - 3.3) / (4.2 - 3.3)) * 100)));
   const barColor = pct > 35 ? '#159447' : pct > 15 ? '#E9A11B' : '#E34545';
 
@@ -302,13 +303,13 @@ const MinimalBatteryStatus: React.FC<{ batteryV: number }> = ({ batteryV }) => {
 };
 
 // ============================================================================
-// 4. ILUSTRACIÓN LIMPIA DE LA ESTACA (CON SOPORTE PARA image_015581.jpg)
+// 4. ILUSTRACIÓN LIMPIA DE LA ESTACA (SOPORTE PARA image_015581.jpg)
 // ============================================================================
 const StakePhotoDisplay: React.FC = () => {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <div className="relative w-full h-72 md:h-80 bg-[#F8F8F8] border border-[#DEDEDE] rounded-2xl overflow-hidden flex items-center justify-center p-4">
+    <div className="relative w-full h-64 md:h-72 bg-[#F8F8F8] border border-[#DEDEDE] rounded-2xl overflow-hidden flex items-center justify-center p-4">
       {!imgError ? (
         <img
           src="/image_015581.jpg"
@@ -317,7 +318,7 @@ const StakePhotoDisplay: React.FC = () => {
           className="w-full h-full object-contain rounded-xl"
         />
       ) : (
-        <svg viewBox="0 0 260 320" className="w-48 h-64">
+        <svg viewBox="0 0 260 320" className="w-44 h-60">
           <defs>
             <linearGradient id="pvcBody" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#E5E4DF" />
@@ -331,11 +332,9 @@ const StakePhotoDisplay: React.FC = () => {
             </linearGradient>
           </defs>
           <ellipse cx="130" cy="296" rx="54" ry="10" fill="rgba(0,0,0,0.10)" />
-          {/* 3 Varillas inferiores */}
           <rect x="103" y="195" width="6" height="92" rx="3" fill="url(#inoxRod)" />
           <rect x="127" y="202" width="6" height="96" rx="3" fill="url(#inoxRod)" />
           <rect x="151" y="195" width="6" height="92" rx="3" fill="url(#inoxRod)" />
-          {/* Cuerpo cilíndrico blanco con coples */}
           <rect x="86" y="34" width="88" height="168" rx="6" fill="url(#pvcBody)" stroke="#C4C0B6" strokeWidth="1.5" />
           <rect x="82" y="28" width="96" height="44" rx="5" fill="url(#pvcBody)" stroke="#B8B4AA" strokeWidth="1.5" />
           <rect x="82" y="154" width="96" height="48" rx="5" fill="url(#pvcBody)" stroke="#B8B4AA" strokeWidth="1.5" />
@@ -361,7 +360,7 @@ const AgroAssistantBubble: React.FC<{
       id: 'init-1',
       role: 'assistant',
       content:
-        'Hola. Soy el asistente agrícola de AgroStake. Estoy conectado a los datos actuales de tu tierra. ¿Tienes dudas sobre qué sembrar, cómo regar o qué significan tus lecturas?',
+        'Hola. Soy el asistente agrícola de AgroStake. Estoy conectado a los datos actuales de tu parcela. ¿Tienes dudas sobre qué sembrar, cómo regar o qué significan tus métricas?',
       timestamp: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -387,11 +386,11 @@ const AgroAssistantBubble: React.FC<{
     }).sort((a, b) => b.okCount - a.okCount);
 
     if (q.includes('sembrar') || q.includes('cultiv') || q.includes('planta') || q.includes('recomienda')) {
-      const best = evaluated.filter((e) => e.okCount >= 3).map((e) => `${e.crop.common_name_es} (${e.okCount}/4 condiciones)`);
+      const best = evaluated.filter((e) => e.okCount >= 3).map((e) => `${e.crop.common_name_es} (${e.okCount}/4)`);
       if (best.length > 0) {
-        return `Según las lecturas actuales (${latest.soil_temperature_c.toFixed(1)} °C, ${latest.soil_moisture_pct.toFixed(1)}% de humedad, pH ${latest.soil_ph.toFixed(2)} y ${latest.precip_total_mm.toFixed(1)} mm de lluvia), las mejores opciones para tu terreno son: ${best.join(', ')}.`;
+        return `Con ${latest.soil_temperature_c.toFixed(1)} °C, ${latest.soil_moisture_pct.toFixed(1)}% de humedad, pH simulado ${latest.soil_ph.toFixed(2)} y ${latest.precip_total_mm.toFixed(1)} mm de lluvia, los cultivos más aptos son: ${best.join(', ')}.`;
       }
-      return `En este momento el cultivo más cercano es ${evaluated[0].crop.common_name_es} (${evaluated[0].okCount}/4 variables en rango). Te sugiero revisar el apartado de Recomendaciones para ajustar la humedad antes de sembrar.`;
+      return `El cultivo más cercano es ${evaluated[0].crop.common_name_es} (${evaluated[0].okCount}/4 condiciones). Revisa el apartado de Recomendaciones para ajustar la humedad antes de sembrar.`;
     }
 
     if (q.includes('humedad') || q.includes('regar') || q.includes('riego') || q.includes('agua')) {
@@ -402,7 +401,7 @@ const AgroAssistantBubble: React.FC<{
       if (latest.soil_moisture_pct > refRange.maxPct) {
         return formatAdviceRule('soil_moisture', 'above', latest.soil_moisture_pct, refRange.maxPct);
       }
-      return `La humedad actual es de ${latest.soil_moisture_pct.toFixed(1)}%, lo cual está dentro del rango saludable (${refRange.minPct}% a ${refRange.maxPct}%) para suelo ${SOIL_TEXTURES[texture].name_es}. No necesitas regar de inmediato.`;
+      return `La humedad actual es de ${latest.soil_moisture_pct.toFixed(1)}%, dentro del rango óptimo (${refRange.minPct}%–${refRange.maxPct}%) para suelo ${SOIL_TEXTURES[texture].name_es}.`;
     }
 
     if (q.includes('ph') || q.includes('acidez') || q.includes('cal')) {
@@ -412,14 +411,14 @@ const AgroAssistantBubble: React.FC<{
       if (latest.soil_ph > 7.2) {
         return formatAdviceRule('soil_ph', 'above', latest.soil_ph, 6.8);
       }
-      return `El pH del suelo está en ${latest.soil_ph.toFixed(2)}. Es un nivel equilibrado que permite que las plantas aprovechen bien los nutrientes de la tierra.`;
+      return `El pH simulado está en ${latest.soil_ph.toFixed(2)}, nivel adecuado para la absorción de nutrientes en la raíz.`;
     }
 
     if (q.includes('temperatura') || q.includes('calor') || q.includes('frio')) {
-      return `La temperatura bajo tierra es de ${latest.soil_temperature_c.toFixed(1)} °C. La mayoría de los granos y hortalizas germinan bien entre 18 °C y 28 °C.`;
+      return `La temperatura del suelo es de ${latest.soil_temperature_c.toFixed(1)} °C. El rango ideal para la mayoría de los cultivos del catálogo está entre 18 °C y 30 °C.`;
     }
 
-    return `Resumen actual de tu parcela: Temperatura ${latest.soil_temperature_c.toFixed(1)} °C, Humedad ${latest.soil_moisture_pct.toFixed(1)}%, pH ${latest.soil_ph.toFixed(2)} y Lluvia acumulada de ${latest.precip_total_mm.toFixed(1)} mm. Pregúntame por un cultivo específico o si necesitas regar.`;
+    return `Resumen actual (${latest.transport === 'wifi_mqtt' ? 'Wi-Fi MQTT' : 'Bluetooth BLE'}): Temperatura ${latest.soil_temperature_c.toFixed(1)} °C, Humedad ${latest.soil_moisture_pct.toFixed(1)}%, pH simulado ${latest.soil_ph.toFixed(2)} y Precipitación ${latest.precip_total_mm.toFixed(1)} mm.`;
   };
 
   const sendMessage = async (textOverride?: string) => {
@@ -438,7 +437,6 @@ const AgroAssistantBubble: React.FC<{
     setIsTyping(true);
 
     try {
-      // Intenta conectar con el backend de IA de tu compañero si está activo en localhost:8000
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 2500);
       const res = await fetch('http://localhost:8000/api/agent/chat', {
@@ -451,6 +449,7 @@ const AgroAssistantBubble: React.FC<{
           soil_ph: latest.soil_ph,
           precip_total_mm: latest.precip_total_mm,
           soil_texture: texture,
+          transport: latest.transport,
         }),
         signal: ctrl.signal,
       });
@@ -468,7 +467,7 @@ const AgroAssistantBubble: React.FC<{
         },
       ]);
     } catch {
-      await new Promise((r) => setTimeout(r, 450));
+      await new Promise((r) => setTimeout(r, 400));
       setMessages((prev) => [
         ...prev,
         {
@@ -487,7 +486,6 @@ const AgroAssistantBubble: React.FC<{
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {isOpen && (
         <div className="mb-3.5 w-[360px] max-w-[calc(100vw-2rem)] bg-white border border-[#D5D5D5] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-          {/* Encabezado */}
           <div className="bg-[#1E1E1E] text-white px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-[#F39200] text-[#1E1E1E] flex items-center justify-center">
@@ -495,26 +493,24 @@ const AgroAssistantBubble: React.FC<{
               </div>
               <div>
                 <h4 className="text-xs font-bold tracking-tight">Asistente Agrícola IA</h4>
-                <span className="text-[11px] text-neutral-400 block">Conectado a base de datos v3.3</span>
+                <span className="text-[11px] text-neutral-400 block">Sincronizado con PostgreSQL v3.3</span>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="w-7 h-7 rounded-lg bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-neutral-300"
+              className="w-7 h-7 rounded-lg bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-neutral-300 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Resumen rápido de lecturas */}
           <div className="bg-[#F8F8F8] border-b border-[#E5E5E5] px-3 py-1.5 flex justify-between text-[11px] text-[#555555]">
             <span>Temp: <strong className="text-[#202020]">{latest.soil_temperature_c.toFixed(1)}°C</strong></span>
             <span>Hum: <strong className="text-[#202020]">{latest.soil_moisture_pct.toFixed(1)}%</strong></span>
-            <span>pH: <strong className="text-[#202020]">{latest.soil_ph.toFixed(2)}</strong></span>
+            <span>pH (Sim): <strong className="text-[#202020]">{latest.soil_ph.toFixed(2)}</strong></span>
             <span>Lluvia: <strong className="text-[#202020]">{latest.precip_total_mm.toFixed(0)}mm</strong></span>
           </div>
 
-          {/* Lista de mensajes */}
           <div className="h-72 overflow-y-auto p-3.5 space-y-2.5 bg-[#EEEEEE]/50">
             {messages.map((m) => (
               <div key={m.id} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -543,27 +539,25 @@ const AgroAssistantBubble: React.FC<{
             {isTyping && (
               <div className="flex items-center gap-2 text-xs text-[#777777] bg-white border border-[#DEDEDE] rounded-xl px-3 py-1.5 w-fit">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F39200]" />
-                <span>Consultando datos del terreno...</span>
+                <span>Analizando consulta...</span>
               </div>
             )}
             <div ref={endRef} />
           </div>
 
-          {/* Preguntas sugeridas */}
           <div className="px-3 py-1.5 bg-white border-t border-[#EEEEEE] flex gap-1.5 overflow-x-auto">
             {['¿Qué puedo sembrar?', '¿Necesito regar?', 'Estado del pH'].map((q) => (
               <button
                 key={q}
                 type="button"
                 onClick={() => sendMessage(q)}
-                className="shrink-0 text-[11px] bg-[#F4F4F4] hover:bg-[#1E1E1E] hover:text-white text-[#202020] px-2.5 py-1 rounded-md border border-[#DEDEDE] transition-colors"
+                className="shrink-0 text-[11px] bg-[#F4F4F4] hover:bg-[#1E1E1E] hover:text-white text-[#202020] px-2.5 py-1 rounded-md border border-[#DEDEDE] transition-colors cursor-pointer"
               >
                 {q}
               </button>
             ))}
           </div>
 
-          {/* Input */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -575,13 +569,13 @@ const AgroAssistantBubble: React.FC<{
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Pregunta sobre tus cultivos o suelo..."
+              placeholder="Pregunta sobre tus cultivos o widgets..."
               className="flex-1 bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-xs text-[#202020] focus:outline-none focus:border-[#1E1E1E]"
             />
             <button
               type="submit"
               disabled={!input.trim() || isTyping}
-              className="w-9 h-9 rounded-xl bg-[#F39200] hover:bg-[#e08600] disabled:opacity-40 text-[#1E1E1E] flex items-center justify-center transition-colors"
+              className="w-9 h-9 rounded-xl bg-[#F39200] hover:bg-[#e08600] disabled:opacity-40 text-[#1E1E1E] flex items-center justify-center transition-colors cursor-pointer"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -589,10 +583,9 @@ const AgroAssistantBubble: React.FC<{
         </div>
       )}
 
-      {/* Botón burbuja estilo Messenger */}
       <button
         onClick={() => setIsOpen((o) => !o)}
-        className="flex items-center gap-2.5 h-12 px-4 rounded-full bg-[#1E1E1E] hover:bg-black text-white shadow-lg border border-[#333333] transition-all"
+        className="flex items-center gap-2.5 h-12 px-4 rounded-full bg-[#1E1E1E] hover:bg-black text-white shadow-lg border border-[#333333] transition-all cursor-pointer"
       >
         <div className="w-7 h-7 rounded-full bg-[#F39200] text-[#1E1E1E] flex items-center justify-center">
           {isOpen ? <X className="w-4 h-4 stroke-[2.4]" /> : <MessageSquare className="w-4 h-4 stroke-[2.2]" />}
@@ -604,17 +597,16 @@ const AgroAssistantBubble: React.FC<{
 };
 
 // ============================================================================
-// 6. APLICACIÓN PRINCIPAL AGROSTAKE (ACOPLADA A SQL v3.3)
+// 6. APLICACIÓN PRINCIPAL AGROSTAKE
 // ============================================================================
 export function App() {
-  // --- Autenticación y Registro (acoplado a auth_register_owner y auth_get_user_by_email) ---
+  // --- Autenticación y Registro ---
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [loginEmail, setLoginEmail] = useState('productor@agrostake.mx');
   const [loginPass, setLoginPass] = useState('123456');
   const [authError, setAuthError] = useState('');
 
-  // Campos de Registro
   const [regFirstName, setRegFirstName] = useState('');
   const [regLastName, setRegLastName] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -622,20 +614,33 @@ export function App() {
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPass, setRegConfirmPass] = useState('');
 
-  // --- Navegación por Iconos Separados ---
+  // --- Navegación ---
   const [activeTab, setActiveTab] = useState<'home' | 'telemetry' | 'crops' | 'sensors' | 'advice'>('home');
   const [expandedCropId, setExpandedCropId] = useState<number | null>(1);
+  const [cropSearch, setCropSearch] = useState('');
+  const [cropFilterClass, setCropFilterClass] = useState<'all' | ViabilityClass>('all');
 
-  // --- Animación "Iniciar análisis" en Inicio ---
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisStepText, setAnalysisStepText] = useState('');
+  // --- Conexión ESP32-C3 (Wi-Fi MQTT / Bluetooth BLE) ---
+  const [espTransport, setEspTransport] = useState<TransportKind>('wifi_mqtt');
+  const [espConnected, setEspConnected] = useState<boolean>(true);
+  const [connectionWarning, setConnectionWarning] = useState<string>('');
+  const deviceUid = 'ESP32-C3-STAKE-01';
 
-  // --- Control de Tiempo Real y Pausa Automática al Configurar ---
+  // --- Control de Análisis y Temporizador ---
+  const [showDurationModal, setShowDurationModal] = useState<boolean>(false);
+  const [selectedDurationSec, setSelectedDurationSec] = useState<number>(300);
+  const [isAnalysisActive, setIsAnalysisActive] = useState<boolean>(false);
+  const [isBootingAnalysis, setIsBootingAnalysis] = useState<boolean>(false);
+  const [analysisStepText, setAnalysisStepText] = useState<string>('');
+  const [remainingSec, setRemainingSec] = useState<number | null>(null);
+  const [elapsedSec, setElapsedSec] = useState<number>(0);
+
+  // --- Muestreo y Textura FAO-56 ---
   const [sampleIntervalSec, setSampleIntervalSec] = useState<number>(2);
   const [isConfiguringTime, setIsConfiguringTime] = useState<boolean>(false);
   const [soilTexture, setSoilTexture] = useState<SoilTextureCode>('loam');
 
-  // --- Serie de Tiempo (soil_readings + latest_soil_ph + weather_daily) ---
+  // --- Historial de Lecturas ---
   const [history, setHistory] = useState<TelemetryPoint[]>(() => {
     const now = Date.now();
     return Array.from({ length: 12 }, (_, idx) => {
@@ -643,10 +648,11 @@ export function App() {
       return {
         timeLabel: t.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         measured_at: t.toISOString(),
+        transport: 'wifi_mqtt',
         soil_temperature_c: Number((22.4 + Math.sin(idx * 0.5) * 0.8).toFixed(1)),
         soil_moisture_pct: Number((21.5 + Math.cos(idx * 0.4) * 1.4).toFixed(1)),
-        soil_ph: Number((6.45 + Math.sin(idx * 0.3) * 0.06).toFixed(2)),
-        precip_total_mm: 70.0, // Valor base en ventana de 30 días de tu test SQL
+        soil_ph: Number((6.42 + Math.sin(idx * 0.35) * 0.08).toFixed(2)),
+        precip_total_mm: Number((69.5 + Math.sin(idx * 0.25) * 1.2).toFixed(1)),
         battery_v: 4.04,
       };
     });
@@ -654,35 +660,105 @@ export function App() {
 
   const latest = history[history.length - 1];
 
-  // Actualización en tiempo real (se pausa automáticamente si isConfiguringTime === true)
+  // Temporizador por segundo para detener en automático al cumplir la duración
   useEffect(() => {
-    if (!user || isConfiguringTime) return;
+    if (!user || !isAnalysisActive || isConfiguringTime || !espConnected) return;
 
-    const timer = setInterval(() => {
+    const secTimer = setInterval(() => {
+      setElapsedSec((prev) => prev + 1);
+      if (selectedDurationSec > 0) {
+        setRemainingSec((prev) => {
+          if (prev === null) return selectedDurationSec - 1;
+          if (prev <= 1) {
+            setIsAnalysisActive(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(secTimer);
+  }, [user, isAnalysisActive, isConfiguringTime, espConnected, selectedDurationSec]);
+
+  // Adquisición de muestras cuando el análisis está activo
+  useEffect(() => {
+    if (!user || !isAnalysisActive || isConfiguringTime || !espConnected) return;
+
+    const sampleTimer = setInterval(() => {
       setHistory((prev) => {
         const last = prev[prev.length - 1];
         const now = new Date();
         const nextTemp = Math.min(35, Math.max(12, +(last.soil_temperature_c + (Math.random() - 0.48) * 0.4).toFixed(1)));
         const nextMoist = Math.min(42, Math.max(10, +(last.soil_moisture_pct + (Math.random() - 0.48) * 0.7).toFixed(1)));
-        const nextPh = Math.min(7.8, Math.max(5.2, +(last.soil_ph + (Math.random() - 0.49) * 0.03).toFixed(2)));
+        const nextPh = Math.min(7.8, Math.max(5.2, +(last.soil_ph + (Math.random() - 0.49) * 0.04).toFixed(2)));
+        const nextRain = Math.min(180, Math.max(25, +(last.precip_total_mm + (Math.random() - 0.48) * 0.3).toFixed(1)));
 
         const nextPoint: TelemetryPoint = {
           timeLabel: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           measured_at: now.toISOString(),
+          transport: espTransport,
           soil_temperature_c: nextTemp,
           soil_moisture_pct: nextMoist,
           soil_ph: nextPh,
-          precip_total_mm: last.precip_total_mm,
-          battery_v: Math.max(3.65, +(last.battery_v - 0.0005).toFixed(2)),
+          precip_total_mm: nextRain,
+          battery_v: Math.max(3.65, +(last.battery_v - 0.0004).toFixed(2)),
         };
         return [...prev.slice(-19), nextPoint];
       });
     }, sampleIntervalSec * 1000);
 
-    return () => clearInterval(timer);
-  }, [user, sampleIntervalSec, isConfiguringTime]);
+    return () => clearInterval(sampleTimer);
+  }, [user, isAnalysisActive, sampleIntervalSec, isConfiguringTime, espConnected, espTransport]);
 
-  // --- Validación de Login y Registro ---
+  // --- Validación de conexión antes de abrir el selector de duración ---
+  const handleClickInitAnalysisButton = () => {
+    if (!espConnected) {
+      setConnectionWarning(
+        `No se puede iniciar el análisis: la estaca ${deviceUid} está desconectada. Conéctala por Wi-Fi o Bluetooth en la barra superior.`
+      );
+      return;
+    }
+    setConnectionWarning('');
+    setShowDurationModal(true);
+  };
+
+  // --- Arrancar análisis con la duración elegida ---
+  const handleConfirmDurationAndStart = (durationSec: number) => {
+    if (!espConnected) {
+      setShowDurationModal(false);
+      setConnectionWarning('El dispositivo ESP32 se desconectó. Reconéctalo antes de iniciar.');
+      return;
+    }
+    setSelectedDurationSec(durationSec);
+    setShowDurationModal(false);
+    setIsBootingAnalysis(true);
+
+    const steps = [
+      `Conectando con ${deviceUid} vía ${espTransport === 'wifi_mqtt' ? 'Wi-Fi (MQTT)' : 'Bluetooth (BLE)'}...`,
+      'Leyendo temperatura y humedad en la raíz...',
+      'Sincronizando pH simulado y lluvia acumulada (NASA POWER)...',
+    ];
+    setAnalysisStepText(steps[0]);
+
+    setTimeout(() => setAnalysisStepText(steps[1]), 450);
+    setTimeout(() => setAnalysisStepText(steps[2]), 900);
+    setTimeout(() => {
+      setIsBootingAnalysis(false);
+      setAnalysisStepText('');
+      setElapsedSec(0);
+      setRemainingSec(durationSec > 0 ? durationSec : null);
+      setIsAnalysisActive(true);
+      setActiveTab('telemetry');
+    }, 1350);
+  };
+
+  const handleStopAnalysis = () => {
+    setIsAnalysisActive(false);
+    setRemainingSec(null);
+  };
+
+  // --- Login y Registro ---
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -709,13 +785,8 @@ export function App() {
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-
-    if (regFirstName.trim().length < 2) {
-      setAuthError('Ingresa tu nombre.');
-      return;
-    }
-    if (regLastName.trim().length < 2) {
-      setAuthError('Ingresa tu apellido.');
+    if (regFirstName.trim().length < 2 || regLastName.trim().length < 2) {
+      setAuthError('Ingresa tu nombre y apellido completos.');
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
@@ -724,7 +795,7 @@ export function App() {
     }
     const cleanPhone = regPhone.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
-      setAuthError('El número telefónico debe tener exactamente 10 dígitos.');
+      setAuthError('El número telefónico debe tener 10 dígitos.');
       return;
     }
     if (regPassword.length < 6) {
@@ -736,41 +807,18 @@ export function App() {
       return;
     }
 
-    const fullName = `${regFirstName.trim()} ${regLastName.trim()}`;
     setUser({
       id: crypto.randomUUID ? crypto.randomUUID() : 'user-uuid-01',
       org_id: crypto.randomUUID ? crypto.randomUUID() : 'org-uuid-01',
-      org_name: `Rancho ${regLastName.trim()}`,
+      org_name: `Parcela ${regLastName.trim()}`,
       email: regEmail.trim().toLowerCase(),
-      full_name: fullName,
+      full_name: `${regFirstName.trim()} ${regLastName.trim()}`,
       phone: cleanPhone,
       role: 'owner',
     });
   };
 
-  // --- Secuencia de "Iniciar análisis" desde la Casa hacia Valores en Vivo ---
-  const triggerStartAnalysis = () => {
-    if (isAnalyzing) return;
-    setIsAnalyzing(true);
-    const steps = [
-      'Conectando con la estaca en tierra...',
-      'Leyendo temperatura y humedad de la raíz...',
-      'Verificando pH y lluvia acumulada (30 días)...',
-      'Calculando compatibilidad de cultivos...',
-    ];
-    setAnalysisStepText(steps[0]);
-
-    setTimeout(() => setAnalysisStepText(steps[1]), 650);
-    setTimeout(() => setAnalysisStepText(steps[2]), 1300);
-    setTimeout(() => setAnalysisStepText(steps[3]), 1950);
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      setAnalysisStepText('');
-      setActiveTab('telemetry');
-    }, 2500);
-  };
-
-  // --- Evaluación de los 6 Cultivos con las Reglas Estrictas del SQL v3.3 ---
+  // --- Evaluación de Cultivos con Regla 4/4 del SQL v3.3 ---
   const evaluatedCrops = useMemo(() => {
     return DB_CROPS.map((crop) => {
       const moistRange = computeFao56MoistureRange(crop.depletion_fraction_p, soilTexture);
@@ -792,19 +840,16 @@ export function App() {
       const rainCheck = checkVar('rainfall', latest.precip_total_mm, crop.rain_min, crop.rain_max);
 
       const checks = [
-        { variable: 'soil_temperature' as VariableCode, label: 'Temperatura', val: `${latest.soil_temperature_c.toFixed(1)} °C`, range: `${crop.temp_min}–${crop.temp_max} °C`, ...tempCheck },
-        { variable: 'soil_moisture' as VariableCode, label: 'Humedad (FAO-56)', val: `${latest.soil_moisture_pct.toFixed(1)} %`, range: `${moistRange.minPct}–${moistRange.maxPct} %`, ...moistCheck },
-        { variable: 'soil_ph' as VariableCode, label: 'Nivel de pH', val: `${latest.soil_ph.toFixed(2)} pH`, range: `${crop.ph_min}–${crop.ph_max} pH`, ...phCheck },
-        { variable: 'rainfall' as VariableCode, label: 'Lluvia (30 días)', val: `${latest.precip_total_mm.toFixed(0)} mm`, range: `${crop.rain_min}–${crop.rain_max} mm`, ...rainCheck },
+        { variable: 'soil_temperature' as VariableCode, label: 'Temperatura suelo', val: `${latest.soil_temperature_c.toFixed(1)} °C`, range: `${crop.temp_min}–${crop.temp_max} °C`, origin: 'estaca', ...tempCheck },
+        { variable: 'soil_moisture' as VariableCode, label: 'Humedad (FAO-56)', val: `${latest.soil_moisture_pct.toFixed(1)} %`, range: `${moistRange.minPct}–${moistRange.maxPct} %`, origin: 'estaca', ...moistCheck },
+        { variable: 'soil_ph' as VariableCode, label: 'pH Simulado', val: `${latest.soil_ph.toFixed(2)} pH`, range: `${crop.ph_min}–${crop.ph_max} pH`, origin: 'simulado', ...phCheck },
+        { variable: 'rainfall' as VariableCode, label: 'Precipitación (30d)', val: `${latest.precip_total_mm.toFixed(1)} mm`, range: `${crop.rain_min}–${crop.rain_max} mm`, origin: 'nasa_power', ...rainCheck },
       ];
 
       const variables_ok = checks.filter((c) => c.status === 'in_range').length;
-
-      // Clasificación oficial de la tabla recommendation_results en el SQL
       const classification: ViabilityClass =
         variables_ok === 4 ? 'recomendado' : variables_ok === 3 ? 'condicionado' : 'no_recomendado';
 
-      // Porcentaje gradual (ml_suitability_score 0-100)
       const sTemp = calcSoftVariableScore(latest.soil_temperature_c, crop.temp_min, crop.temp_max, 8);
       const sMoist = calcSoftVariableScore(latest.soil_moisture_pct, moistRange.minPct, moistRange.maxPct, 12);
       const sPh = calcSoftVariableScore(latest.soil_ph, crop.ph_min, crop.ph_max, 1.2);
@@ -822,21 +867,34 @@ export function App() {
     }).sort((a, b) => b.ml_suitability_score - a.ml_suitability_score);
   }, [latest, soilTexture]);
 
+  const filteredCrops = useMemo(() => {
+    return evaluatedCrops.filter((item) => {
+      const matchesClass = cropFilterClass === 'all' || item.classification === cropFilterClass;
+      const q = cropSearch.trim().toLowerCase();
+      const matchesQuery =
+        !q ||
+        item.crop.common_name_es.toLowerCase().includes(q) ||
+        item.crop.scientific_name.toLowerCase().includes(q) ||
+        item.crop.category.toLowerCase().includes(q) ||
+        (item.crop.dataset_label && item.crop.dataset_label.toLowerCase().includes(q));
+      return matchesClass && matchesQuery;
+    });
+  }, [evaluatedCrops, cropFilterClass, cropSearch]);
+
   // ============================================================================
-  // PANTALLA DE ACCESO Y REGISTRO (FORMAL Y MINIMALISTA)
+  // PANTALLA DE LOGIN Y REGISTRO COMPLETA
   // ============================================================================
   if (!user) {
     return (
       <div className="min-h-screen bg-[#EEEEEE] text-[#202020] flex items-center justify-center p-4 font-sans">
         <div className="w-full max-w-md bg-white border border-[#D5D5D5] rounded-2xl shadow-sm p-8">
-          {/* Encabezado de marca */}
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-[#1E1E1E] text-white flex items-center justify-center">
               <Sprout className="w-5 h-5 text-[#F39200]" />
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-tight text-[#202020]">AgroStake</h1>
-              <p className="text-xs text-[#777777]">Sistema de Monitoreo de Tierra</p>
+              <p className="text-xs text-[#777777]">Monitoreo Inteligente de Suelo · v3.3</p>
             </div>
           </div>
 
@@ -845,8 +903,8 @@ export function App() {
           </h2>
           <p className="text-xs text-[#777777] mb-6">
             {authMode === 'login'
-              ? 'Ingresa tus datos para consultar el estado de tu terreno.'
-              : 'Completa el formulario para registrar tu parcela en el sistema.'}
+              ? 'Ingresa tus credenciales para consultar tu parcela.'
+              : 'Completa tus datos para registrar tu organización en el sistema.'}
           </p>
 
           {authError && (
@@ -864,7 +922,6 @@ export function App() {
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   className="w-full bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#1E1E1E]"
-                  placeholder="ejemplo@correo.com"
                   required
                 />
               </div>
@@ -875,7 +932,6 @@ export function App() {
                   value={loginPass}
                   onChange={(e) => setLoginPass(e.target.value)}
                   className="w-full bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#1E1E1E]"
-                  placeholder="••••••••"
                   required
                 />
               </div>
@@ -885,7 +941,6 @@ export function App() {
               >
                 Entrar al panel
               </button>
-
               <div className="pt-3 border-t border-[#EEEEEE] text-center">
                 <button
                   type="button"
@@ -909,7 +964,6 @@ export function App() {
                     value={regFirstName}
                     onChange={(e) => setRegFirstName(e.target.value)}
                     className="w-full bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1E1E1E]"
-                    placeholder="José"
                     required
                   />
                 </div>
@@ -920,12 +974,10 @@ export function App() {
                     value={regLastName}
                     onChange={(e) => setRegLastName(e.target.value)}
                     className="w-full bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1E1E1E]"
-                    placeholder="Escobedo"
                     required
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold text-[#202020] mb-1">Correo electrónico</label>
                 <input
@@ -933,23 +985,19 @@ export function App() {
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
                   className="w-full bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1E1E1E]"
-                  placeholder="productor@correo.com"
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-[#202020] mb-1">Número telefónico (10 dígitos)</label>
+                <label className="block text-xs font-semibold text-[#202020] mb-1">Teléfono (10 dígitos)</label>
                 <input
                   type="tel"
                   value={regPhone}
                   onChange={(e) => setRegPhone(e.target.value)}
                   className="w-full bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1E1E1E]"
-                  placeholder="8441234567"
                   required
                 />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-[#202020] mb-1">Contraseña</label>
@@ -958,30 +1006,26 @@ export function App() {
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
                     className="w-full bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1E1E1E]"
-                    placeholder="Mínimo 6 caracteres"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#202020] mb-1">Confirmar contraseña</label>
+                  <label className="block text-xs font-semibold text-[#202020] mb-1">Confirmar</label>
                   <input
                     type="password"
                     value={regConfirmPass}
                     onChange={(e) => setRegConfirmPass(e.target.value)}
                     className="w-full bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1E1E1E]"
-                    placeholder="Repite la contraseña"
                     required
                   />
                 </div>
               </div>
-
               <button
                 type="submit"
                 className="w-full py-3 rounded-xl bg-[#F39200] hover:bg-[#e08600] text-[#1E1E1E] font-bold text-sm transition-colors cursor-pointer"
               >
                 Registrarme y entrar
               </button>
-
               <div className="pt-2 border-t border-[#EEEEEE] text-center">
                 <button
                   type="button"
@@ -1001,9 +1045,6 @@ export function App() {
     );
   }
 
-  // ============================================================================
-  // DEFINICIÓN DE LOS 5 ICONOS DEL MENÚ LATERAL (CUADROS GRISES -> NEGROS)
-  // ============================================================================
   const navItems: { id: typeof activeTab; icon: React.ElementType; label: string }[] = [
     { id: 'home', icon: Home, label: 'Inicio' },
     { id: 'telemetry', icon: Activity, label: 'Valores en vivo' },
@@ -1012,22 +1053,86 @@ export function App() {
     { id: 'advice', icon: ClipboardCheck, label: 'Recomendaciones' },
   ];
 
-  // ============================================================================
-  // PANEL PRINCIPAL POST-LOGIN
-  // ============================================================================
   return (
     <div className="min-h-screen bg-[#EEEEEE] text-[#202020] flex flex-col font-sans">
-      {/* BARRA SUPERIOR LIMPIA: Logo a la izquierda y Batería pequeña a la derecha */}
-      <header className="h-16 bg-white border-b border-[#D5D5D5] px-5 flex items-center justify-between sticky top-0 z-30">
+      {/* BARRA SUPERIOR: CONEXIÓN WIFI / BLUETOOTH ESP32 + ESTADO + BATERÍA */}
+      <header className="h-16 bg-white border-b border-[#D5D5D5] px-4 md:px-6 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#1E1E1E] text-white flex items-center justify-center">
             <Sprout className="w-5 h-5 text-[#F39200]" />
           </div>
-          <span className="font-bold text-base tracking-tight text-[#202020]">AgroStake</span>
+          <div>
+            <span className="font-bold text-base tracking-tight text-[#202020] block leading-none">AgroStake</span>
+            <span className="text-[10px] font-medium text-[#777777]">{deviceUid}</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Selector Wi-Fi / Bluetooth para el ESP32 */}
+          <div className="flex items-center bg-[#F4F4F4] border border-[#D5D5D5] rounded-xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setEspTransport('wifi_mqtt');
+                setEspConnected(true);
+                setConnectionWarning('');
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                espTransport === 'wifi_mqtt' && espConnected
+                  ? 'bg-[#1E1E1E] text-white shadow-xs'
+                  : 'text-[#555555] hover:text-[#202020]'
+              }`}
+              title="Conectar ESP32 por Wi-Fi (MQTT)"
+            >
+              <Wifi className="w-3.5 h-3.5 text-[#F39200]" />
+              <span className="hidden sm:inline">Wi-Fi</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEspTransport('ble');
+                setEspConnected(true);
+                setConnectionWarning('');
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                espTransport === 'ble' && espConnected
+                  ? 'bg-[#1E1E1E] text-white shadow-xs'
+                  : 'text-[#555555] hover:text-[#202020]'
+              }`}
+              title="Conectar ESP32 por Bluetooth (BLE)"
+            >
+              <Bluetooth className="w-3.5 h-3.5 text-[#F39200]" />
+              <span className="hidden sm:inline">Bluetooth</span>
+            </button>
+          </div>
+
+          {/* Botón para simular conexión / desconexión del ESP32 */}
+          <button
+            type="button"
+            onClick={() => {
+              setEspConnected((prev) => {
+                const next = !prev;
+                if (!next) {
+                  setIsAnalysisActive(false);
+                  setShowDurationModal(false);
+                } else {
+                  setConnectionWarning('');
+                }
+                return next;
+              });
+            }}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+              espConnected
+                ? 'bg-[#159447]/10 text-[#159447] border-[#159447]/30'
+                : 'bg-[#E34545]/10 text-[#E34545] border-[#E34545]/30'
+            }`}
+            title="Haz clic para conectar o desconectar el ESP32"
+          >
+            {espConnected ? 'ESP32 Conectado' : 'ESP32 Desconectado'}
+          </button>
+
           <MinimalBatteryStatus batteryV={latest.battery_v} />
+
           <button
             onClick={() => setUser(null)}
             className="w-9 h-9 rounded-xl bg-[#E2E2E2] hover:bg-[#1E1E1E] text-[#202020] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
@@ -1038,9 +1143,8 @@ export function App() {
         </div>
       </header>
 
-      {/* CUERPO CON BARRA LATERAL ARRIBA A LA IZQUIERDA Y CONTENIDO INDEPENDIENTE */}
       <div className="flex-1 flex">
-        {/* SIDEBAR COMPACTO ALINEADO ARRIBA (SIN BAJAR MUCHO) */}
+        {/* SIDEBAR IZQUIERDO */}
         <aside className="w-20 bg-white border-r border-[#D5D5D5] flex flex-col items-center justify-start pt-5 gap-3 sticky top-16 h-[calc(100vh-4rem)] shrink-0">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -1050,22 +1154,25 @@ export function App() {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 title={item.label}
-                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all cursor-pointer relative ${
                   isSelected
                     ? 'bg-[#1E1E1E] text-white shadow-sm'
                     : 'bg-[#E2E2E2] text-[#202020] hover:bg-[#1E1E1E] hover:text-white'
                 }`}
               >
                 <Icon className="w-5 h-5 stroke-[2]" />
+                {item.id === 'telemetry' && isAnalysisActive && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#159447] border-2 border-white absolute top-1.5 right-1.5" />
+                )}
               </button>
             );
           })}
         </aside>
 
-        {/* CONTENEDOR CENTRAL POR VISTA */}
+        {/* CONTENIDO PRINCIPAL */}
         <main className="flex-1 p-6 md:p-8 max-w-5xl mx-auto w-full">
           {/* ==================================================================
-              VISTA 1: INICIO (CASA) - FOTO DE ESTACA, GUÍA SENCILLA E INICIAR ANÁLISIS
+              VISTA 1: INICIO (LOS 3 PASOS + BOTÓN DE ANÁLISIS CON DURACIÓN Y VALIDACIÓN)
              ================================================================== */}
           {activeTab === 'home' && (
             <section className="bg-white border border-[#D5D5D5] rounded-2xl p-6 md:p-8 shadow-sm">
@@ -1081,12 +1188,11 @@ export function App() {
                 </p>
               </div>
 
-              {/* Imagen limpia de la estaca */}
               <div className="max-w-lg mx-auto mb-8">
                 <StakePhotoDisplay />
               </div>
 
-              {/* Paso a paso sencillo y formal para el agricultor */}
+              {/* Los 3 pasos originales */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div className="bg-[#F8F8F8] border border-[#E5E5E5] rounded-xl p-4">
                   <div className="w-7 h-7 rounded-lg bg-[#1E1E1E] text-white text-xs font-bold flex items-center justify-center mb-2.5">
@@ -1104,7 +1210,7 @@ export function App() {
                   </div>
                   <h3 className="text-sm font-bold text-[#202020] mb-1">Enciende e inicia la lectura</h3>
                   <p className="text-xs text-[#777777] leading-relaxed">
-                    Presiona el botón naranja de abajo para que la estaca mida las condiciones actuales del suelo y las envíe a tu pantalla.
+                    Verifica arriba que tu estaca esté conectada por Wi-Fi o Bluetooth y presiona el botón naranja para elegir la duración del análisis.
                   </p>
                 </div>
 
@@ -1119,32 +1225,92 @@ export function App() {
                 </div>
               </div>
 
-              {/* Botón de Iniciar Análisis con animación y salto automático a Valores en vivo */}
+              {/* Alerta si intenta iniciar análisis con el ESP32 desconectado */}
+              {connectionWarning && (
+                <div className="max-w-lg mx-auto mb-4 p-3.5 rounded-xl bg-[#E34545]/10 border border-[#E34545]/30 flex items-center gap-2.5 text-xs font-semibold text-[#E34545]">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{connectionWarning}</span>
+                </div>
+              )}
+
+              {/* Área del botón único de Análisis */}
               <div className="flex flex-col items-center">
-                <button
-                  onClick={triggerStartAnalysis}
-                  disabled={isAnalyzing}
-                  className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-[#F39200] hover:bg-[#e08600] disabled:opacity-80 text-[#1E1E1E] font-bold text-sm shadow-sm transition-all cursor-pointer"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Analizando terreno...</span>
-                    </>
-                  ) : (
-                    <>
+                {!isAnalysisActive ? (
+                  !showDurationModal && !isBootingAnalysis ? (
+                    <button
+                      type="button"
+                      onClick={handleClickInitAnalysisButton}
+                      className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-[#F39200] hover:bg-[#e08600] text-[#1E1E1E] font-bold text-sm shadow-sm transition-all cursor-pointer"
+                    >
                       <Play className="w-5 h-5 fill-current" />
                       <span>Iniciar análisis</span>
-                    </>
-                  )}
-                </button>
-
-                {isAnalyzing && (
-                  <div className="mt-4 w-full max-w-md bg-[#F8F8F8] border border-[#DEDEDE] rounded-xl p-3 text-center">
-                    <p className="text-xs font-semibold text-[#202020]">{analysisStepText}</p>
-                    <div className="w-full h-1.5 bg-[#DEDEDE] rounded-full overflow-hidden mt-2">
-                      <div className="h-full bg-[#F39200] animate-pulse w-4/5 rounded-full" />
+                    </button>
+                  ) : isBootingAnalysis ? (
+                    <div className="w-full max-w-md bg-[#F8F8F8] border border-[#DEDEDE] rounded-xl p-4 text-center">
+                      <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#202020]">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#F39200]" />
+                        <span>{analysisStepText}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-[#DEDEDE] rounded-full overflow-hidden mt-2.5">
+                        <div className="h-full bg-[#F39200] animate-pulse w-4/5 rounded-full" />
+                      </div>
                     </div>
+                  ) : (
+                    /* Selector emergente de duración al hacer clic en Iniciar análisis */
+                    <div className="w-full max-w-md bg-[#F8F8F8] border border-[#D5D5D5] rounded-2xl p-5 text-center space-y-3">
+                      <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-[#202020]">
+                        <Clock className="w-4 h-4 text-[#F39200]" />
+                        <span>Selecciona la duración del análisis</span>
+                      </div>
+                      <p className="text-[11px] text-[#777777]">
+                        El análisis se detendrá automáticamente al terminar el tiempo o cuando lo pauses manualmente.
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                        {[
+                          { label: '1 min', sec: 60 },
+                          { label: '5 min', sec: 300 },
+                          { label: '15 min', sec: 900 },
+                          { label: 'Continuo', sec: 0 },
+                        ].map((opt) => (
+                          <button
+                            key={opt.sec}
+                            type="button"
+                            onClick={() => handleConfirmDurationAndStart(opt.sec)}
+                            className="py-2.5 px-3 rounded-xl bg-white hover:bg-[#1E1E1E] text-[#202020] hover:text-white border border-[#D5D5D5] text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDurationModal(false)}
+                        className="text-xs font-semibold text-[#777777] hover:text-[#202020] underline cursor-pointer pt-1"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  /* Si el usuario regresa al Home mientras el análisis corre, puede detenerlo aquí mismo */
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleStopAnalysis}
+                      className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-[#E34545] hover:bg-[#c93737] text-white font-bold text-sm shadow-sm transition-all cursor-pointer"
+                    >
+                      <Square className="w-4 h-4 fill-current" />
+                      <span>
+                        Detener análisis (
+                        {remainingSec !== null
+                          ? `Restan ${formatSeconds(remainingSec)}`
+                          : `Continuo · ${formatSeconds(elapsedSec)}`}
+                        )
+                      </span>
+                    </button>
+                    <span className="text-xs text-[#777777]">
+                      Enlace activo por {espTransport === 'wifi_mqtt' ? 'Wi-Fi (MQTT)' : 'Bluetooth (BLE)'}
+                    </span>
                   </div>
                 )}
               </div>
@@ -1152,28 +1318,40 @@ export function App() {
           )}
 
           {/* ==================================================================
-              VISTA 2: VALORES EN VIVO (TIEMPO REAL + PAUSA AL CONFIGURAR)
+              VISTA 2: VALORES EN VIVO (4 TARJETAS + 1 SOLA GRÁFICA CON NÚMEROS + HISTORIAL DESPLEGABLE)
              ================================================================== */}
           {activeTab === 'telemetry' && (
             <section className="space-y-6">
-              {/* Encabezado y controles de tiempo */}
-              <div className="bg-white border border-[#D5D5D5] rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
+              {/* Encabezado y controles */}
+              <div className="bg-white border border-[#D5D5D5] rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-[#202020]">Valores en vivo</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-[#202020]">Valores en vivo</h2>
+                    <span
+                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                        isAnalysisActive && espConnected
+                          ? 'bg-[#159447]/15 text-[#159447]'
+                          : 'bg-[#E9A11B]/15 text-[#E9A11B]'
+                      }`}
+                    >
+                      {isAnalysisActive && espConnected
+                        ? remainingSec !== null
+                          ? `Analizando · ${formatSeconds(remainingSec)}`
+                          : `En vivo · ${formatSeconds(elapsedSec)}`
+                        : 'En espera'}
+                    </span>
+                  </div>
                   <p className="text-xs text-[#777777] mt-0.5">
-                    {isConfiguringTime
-                      ? 'Lectura en pausa mientras eliges el tiempo de actualización.'
-                      : `Actualizando automáticamente cada ${sampleIntervalSec} segundos.`}
+                    Canal: <strong>{espTransport === 'wifi_mqtt' ? 'Wi-Fi (MQTT)' : 'Bluetooth (BLE)'}</strong> ·
+                    Muestreo cada {sampleIntervalSec}s
                   </p>
                 </div>
 
-                {/* Controles de tiempo real y botón que pausa al configurar */}
                 <div className="flex flex-wrap items-center gap-2">
                   <select
                     value={soilTexture}
                     onChange={(e) => setSoilTexture(e.target.value as SoilTextureCode)}
-                    className="bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-xs font-semibold text-[#202020] focus:outline-none"
-                    title="Tipo de tierra (FAO-56)"
+                    className="bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-2 text-xs font-semibold text-[#202020] focus:outline-none cursor-pointer"
                   >
                     {Object.values(SOIL_TEXTURES).map((t) => (
                       <option key={t.texture_code} value={t.texture_code}>
@@ -1188,12 +1366,12 @@ export function App() {
                       className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#1E1E1E] text-white text-xs font-semibold hover:bg-black transition-colors cursor-pointer"
                     >
                       <Settings className="w-3.5 h-3.5 text-[#F39200]" />
-                      <span>Tiempo: {sampleIntervalSec}s (Configurar)</span>
+                      <span>Tiempo: {sampleIntervalSec}s</span>
                     </button>
                   ) : (
                     <div className="flex items-center gap-1.5 bg-[#F8F8F8] border border-[#F39200] rounded-xl p-1">
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E9A11B] px-2">
-                        <Pause className="w-3 h-3" /> En pausa:
+                        <Pause className="w-3 h-3" /> Pausa:
                       </span>
                       {[2, 5, 10].map((sec) => (
                         <button
@@ -1216,11 +1394,11 @@ export function App() {
                 </div>
               </div>
 
-              {/* 4 Tarjetas de las variables de la base de datos v3.3 */}
+              {/* Las 4 Tarjetas de Lectura */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white border border-[#D5D5D5] rounded-2xl p-5">
                   <div className="flex items-center justify-between text-xs font-semibold text-[#777777] mb-2">
-                    <span>Temperatura</span>
+                    <span>Temperatura Suelo</span>
                     <Thermometer className="w-4 h-4 text-[#F39200]" />
                   </div>
                   <div className="flex items-baseline gap-1">
@@ -1230,20 +1408,20 @@ export function App() {
                     <span className="text-sm font-semibold text-[#777777]">°C</span>
                   </div>
                   <span className="inline-block mt-3 text-[11px] font-semibold text-[#159447]">
-                    Lectura directa en raíz
+                    Sensor DS18B20 ({latest.transport === 'wifi_mqtt' ? 'Wi-Fi' : 'BLE'})
                   </span>
                 </div>
 
                 <div className="bg-white border border-[#D5D5D5] rounded-2xl p-5">
                   <div className="flex items-center justify-between text-xs font-semibold text-[#777777] mb-2">
-                    <span>Humedad</span>
+                    <span>Humedad Suelo</span>
                     <Droplets className="w-4 h-4 text-[#202020]" />
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-bold text-[#202020] tabular-nums">
                       {latest.soil_moisture_pct.toFixed(1)}
                     </span>
-                    <span className="text-sm font-semibold text-[#777777]">%</span>
+                    <span className="text-sm font-semibold text-[#777777]">% vol</span>
                   </div>
                   <span className="inline-block mt-3 text-[11px] font-semibold text-[#777777]">
                     Suelo {SOIL_TEXTURES[soilTexture].name_es}
@@ -1252,7 +1430,7 @@ export function App() {
 
                 <div className="bg-white border border-[#D5D5D5] rounded-2xl p-5">
                   <div className="flex items-center justify-between text-xs font-semibold text-[#777777] mb-2">
-                    <span>Nivel de pH</span>
+                    <span>Nivel de pH (Simulado)</span>
                     <FlaskConical className="w-4 h-4 text-[#F39200]" />
                   </div>
                   <div className="flex items-baseline gap-1">
@@ -1261,15 +1439,15 @@ export function App() {
                     </span>
                     <span className="text-sm font-semibold text-[#777777]">pH</span>
                   </div>
-                  <span className="inline-block mt-3 text-[11px] font-semibold text-[#159447]">
-                    Rango equilibrado: 5.8 – 7.0
+                  <span className="inline-block mt-3 text-[11px] font-semibold text-[#E9A11B]">
+                    Método: simulado (v3.3)
                   </span>
                 </div>
 
                 <div className="bg-white border border-[#D5D5D5] rounded-2xl p-5">
                   <div className="flex items-center justify-between text-xs font-semibold text-[#777777] mb-2">
                     <span>Precipitación (30d)</span>
-                    <CloudRain className="w-4 h-4 text-[#202020]" />
+                    <CloudRain className="w-4 h-4 text-[#159447]" />
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-bold text-[#202020] tabular-nums">
@@ -1277,148 +1455,384 @@ export function App() {
                     </span>
                     <span className="text-sm font-semibold text-[#777777]">mm</span>
                   </div>
-                  <span className="inline-block mt-3 text-[11px] font-semibold text-[#777777]">
-                    Acumulado climático
+                  <span className="inline-block mt-3 text-[11px] font-semibold text-[#159447]">
+                    NASA POWER (MERRA-2)
                   </span>
                 </div>
               </div>
 
-              {/* Gráfica limpia exclusiva de Temperatura y Humedad */}
+              {/* UNA SOLA GRÁFICA UNIFICADA CON LAS 4 MÉTRICAS Y NÚMEROS VISIBLES */}
               <div className="bg-white border border-[#D5D5D5] rounded-2xl p-6">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div>
-                    <h3 className="text-sm font-bold text-[#202020]">Comportamiento de Temperatura y Humedad</h3>
-                    <p className="text-xs text-[#777777]">Registro continuo en tiempo real ({history.length} muestras recientes)</p>
+                    <h3 className="text-sm font-bold text-[#202020]">
+                      Gráfica Multivariable en Vivo (4 Métricas de Viabilidad)
+                    </h3>
+                    <p className="text-xs text-[#777777]">
+                      Escala numérica de 0 a 100 con valores actuales en cada curva
+                    </p>
                   </div>
-                  <div className="flex items-center gap-4 text-xs font-semibold">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-1 bg-[#F39200] rounded-full inline-block" /> Temperatura (°C)
+
+                  {/* Leyenda con los números actuales en vivo */}
+                  <div className="flex flex-wrap items-center gap-3 text-xs font-bold bg-[#F8F8F8] border border-[#E5E5E5] px-3 py-2 rounded-xl">
+                    <span className="flex items-center gap-1.5 text-[#202020]">
+                      <span className="w-3 h-1 bg-[#F39200] rounded-full inline-block" />
+                      Temp: {latest.soil_temperature_c.toFixed(1)}°C
                     </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-1 bg-[#1E1E1E] rounded-full inline-block" /> Humedad (%)
+                    <span className="flex items-center gap-1.5 text-[#202020]">
+                      <span className="w-3 h-1 bg-[#1E1E1E] rounded-full inline-block" />
+                      Hum: {latest.soil_moisture_pct.toFixed(1)}%
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[#202020]">
+                      <span className="w-3 h-1 bg-[#2563EB] rounded-full inline-block" />
+                      pH Sim (x10): {latest.soil_ph.toFixed(2)}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[#202020]">
+                      <span className="w-3 h-1 bg-[#159447] rounded-full inline-block" />
+                      Lluvia: {latest.precip_total_mm.toFixed(1)}mm
                     </span>
                   </div>
                 </div>
 
-                <div className="h-60 w-full bg-[#F8F8F8] border border-[#E5E5E5] rounded-xl p-4">
-                  <svg viewBox="0 0 600 180" className="w-full h-full overflow-visible">
-                    {[0, 45, 90, 135, 180].map((y) => (
-                      <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="#E2E2E2" strokeDasharray="3 3" />
+                <div className="w-full bg-[#F8F8F8] border border-[#E5E5E5] rounded-xl p-4">
+                  <svg viewBox="0 0 660 230" className="w-full h-64 overflow-visible">
+                    {/* Eje Y con números claros (0, 25, 50, 75, 100) */}
+                    {[
+                      { val: 100, y: 15 },
+                      { val: 75, y: 60 },
+                      { val: 50, y: 105 },
+                      { val: 25, y: 150 },
+                      { val: 0, y: 195 },
+                    ].map((tick) => (
+                      <g key={tick.val}>
+                        <text
+                          x="28"
+                          y={tick.y + 4}
+                          textAnchor="end"
+                          className="text-[11px] fill-[#555555] font-bold"
+                        >
+                          {tick.val}
+                        </text>
+                        <line
+                          x1="36"
+                          y1={tick.y}
+                          x2="610"
+                          y2={tick.y}
+                          stroke="#DEDEDE"
+                          strokeDasharray="3 3"
+                        />
+                      </g>
                     ))}
-                    {/* Línea de Humedad (%) */}
+
+                    {/* Etiquetas numéricas de tiempo en el Eje X */}
+                    {history.map((pt, i) => {
+                      if (i % 3 !== 0 && i !== history.length - 1) return null;
+                      const x = 36 + (i / Math.max(1, history.length - 1)) * 574;
+                      return (
+                        <text
+                          key={i}
+                          x={x}
+                          y="218"
+                          textAnchor="middle"
+                          className="text-[10px] fill-[#777777] font-semibold"
+                        >
+                          {pt.timeLabel}
+                        </text>
+                      );
+                    })}
+
+                    {/* Curva 1: Precipitación (mm, escala directa 0-100) */}
                     <polyline
                       fill="none"
-                      stroke="#1E1E1E"
-                      strokeWidth="2.5"
+                      stroke="#159447"
+                      strokeWidth="2.4"
                       points={history
                         .map((pt, i) => {
-                          const x = (i / Math.max(1, history.length - 1)) * 600;
-                          const y = 170 - ((pt.soil_moisture_pct - 5) / 45) * 150;
-                          return `${x},${Math.min(175, Math.max(5, y))}`;
+                          const x = 36 + (i / Math.max(1, history.length - 1)) * 574;
+                          const y = 195 - (Math.min(100, Math.max(0, pt.precip_total_mm)) / 100) * 180;
+                          return `${x},${y}`;
                         })
                         .join(' ')}
                     />
-                    {/* Línea de Temperatura (°C) */}
+
+                    {/* Curva 2: pH Simulado (multiplicado x10 para verse claro en la escala 0-100) */}
+                    <polyline
+                      fill="none"
+                      stroke="#2563EB"
+                      strokeWidth="2.4"
+                      points={history
+                        .map((pt, i) => {
+                          const x = 36 + (i / Math.max(1, history.length - 1)) * 574;
+                          const y = 195 - (Math.min(100, Math.max(0, pt.soil_ph * 10)) / 100) * 180;
+                          return `${x},${y}`;
+                        })
+                        .join(' ')}
+                    />
+
+                    {/* Curva 3: Temperatura (°C, escala directa 0-100) */}
                     <polyline
                       fill="none"
                       stroke="#F39200"
-                      strokeWidth="2.8"
+                      strokeWidth="2.6"
                       points={history
                         .map((pt, i) => {
-                          const x = (i / Math.max(1, history.length - 1)) * 600;
-                          const y = 170 - ((pt.soil_temperature_c - 5) / 35) * 150;
-                          return `${x},${Math.min(175, Math.max(5, y))}`;
+                          const x = 36 + (i / Math.max(1, history.length - 1)) * 574;
+                          const y = 195 - (Math.min(100, Math.max(0, pt.soil_temperature_c)) / 100) * 180;
+                          return `${x},${y}`;
                         })
                         .join(' ')}
                     />
+
+                    {/* Curva 4: Humedad (% vol, escala directa 0-100) */}
+                    <polyline
+                      fill="none"
+                      stroke="#1E1E1E"
+                      strokeWidth="2.6"
+                      points={history
+                        .map((pt, i) => {
+                          const x = 36 + (i / Math.max(1, history.length - 1)) * 574;
+                          const y = 195 - (Math.min(100, Math.max(0, pt.soil_moisture_pct)) / 100) * 180;
+                          return `${x},${y}`;
+                        })
+                        .join(' ')}
+                    />
+
+                    {/* Valores numéricos al final de cada línea */}
+                    {(() => {
+                      const yRain = 195 - (Math.min(100, Math.max(0, latest.precip_total_mm)) / 100) * 180;
+                      const yPh = 195 - (Math.min(100, Math.max(0, latest.soil_ph * 10)) / 100) * 180;
+                      const yTemp = 195 - (Math.min(100, Math.max(0, latest.soil_temperature_c)) / 100) * 180;
+                      const yMoist = 195 - (Math.min(100, Math.max(0, latest.soil_moisture_pct)) / 100) * 180;
+                      return (
+                        <g className="text-[10px] font-bold">
+                          <circle cx="610" cy={yRain} r="3.5" fill="#159447" />
+                          <text x="616" y={yRain + 3} fill="#159447">{latest.precip_total_mm.toFixed(0)}mm</text>
+
+                          <circle cx="610" cy={yPh} r="3.5" fill="#2563EB" />
+                          <text x="616" y={yPh + 3} fill="#2563EB">pH {latest.soil_ph.toFixed(1)}</text>
+
+                          <circle cx="610" cy={yTemp} r="3.5" fill="#F39200" />
+                          <text x="616" y={yTemp + 3} fill="#F39200">{latest.soil_temperature_c.toFixed(1)}°C</text>
+
+                          <circle cx="610" cy={yMoist} r="3.5" fill="#1E1E1E" />
+                          <text x="616" y={yMoist + 3} fill="#1E1E1E">{latest.soil_moisture_pct.toFixed(1)}%</text>
+                        </g>
+                      );
+                    })()}
                   </svg>
                 </div>
               </div>
+
+              {/* HISTORIAL DESPLEGABLE PARA QUE NO ESTORBE */}
+              <details className="bg-white border border-[#D5D5D5] rounded-2xl group overflow-hidden">
+                <summary className="p-5 font-bold text-sm text-[#202020] cursor-pointer flex items-center justify-between hover:bg-[#F8F8F8] transition-colors list-none">
+                  <div className="flex items-center gap-2.5">
+                    <List className="w-4 h-4 text-[#F39200]" />
+                    <span>Historial de lecturas de las 4 métricas ({history.length} muestras recientes)</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-[#777777] group-open:rotate-180 transition-transform" />
+                </summary>
+
+                <div className="px-5 pb-5 pt-2 border-t border-[#EEEEEE] overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-[#F4F4F4] text-[#555555] border-b border-[#E5E5E5]">
+                        <th className="py-2.5 px-3 font-bold">Hora</th>
+                        <th className="py-2.5 px-3 font-bold">Canal ESP32</th>
+                        <th className="py-2.5 px-3 font-bold">Temperatura (°C)</th>
+                        <th className="py-2.5 px-3 font-bold">Humedad (% vol)</th>
+                        <th className="py-2.5 px-3 font-bold">pH (Simulado)</th>
+                        <th className="py-2.5 px-3 font-bold">Precipitación (mm)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EEEEEE]">
+                      {history
+                        .slice()
+                        .reverse()
+                        .map((row, idx) => (
+                          <tr key={idx} className="hover:bg-[#F8F8F8]">
+                            <td className="py-2 px-3 font-medium text-[#555555] tabular-nums">{row.timeLabel}</td>
+                            <td className="py-2 px-3">
+                              <span className="inline-block px-2 py-0.5 rounded bg-[#EEEEEE] text-[#202020] font-semibold text-[11px]">
+                                {row.transport === 'wifi_mqtt' ? 'Wi-Fi (MQTT)' : 'Bluetooth (BLE)'}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 font-bold text-[#F39200] tabular-nums">
+                              {row.soil_temperature_c.toFixed(1)} °C
+                            </td>
+                            <td className="py-2 px-3 font-bold text-[#202020] tabular-nums">
+                              {row.soil_moisture_pct.toFixed(1)} %
+                            </td>
+                            <td className="py-2 px-3 font-bold text-[#2563EB] tabular-nums">
+                              {row.soil_ph.toFixed(2)} pH
+                            </td>
+                            <td className="py-2 px-3 font-bold text-[#159447] tabular-nums">
+                              {row.precip_total_mm.toFixed(1)} mm
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
             </section>
           )}
 
           {/* ==================================================================
-              VISTA 3: CULTIVOS APTOS (6 CULTIVOS DEL SQL + REGLA 4/4 + SCORE)
+              VISTA 3: CULTIVOS APTOS (SOBRIO, SIN FOTOS, PREPARADO PARA DATASET)
              ================================================================== */}
           {activeTab === 'crops' && (
             <section className="space-y-4">
-              <div className="bg-white border border-[#D5D5D5] rounded-2xl p-6">
-                <h2 className="text-xl font-bold text-[#202020]">Cultivos aptos</h2>
-                <p className="text-xs text-[#777777] mt-1">
-                  Compatibilidad calculada con las 4 variables del terreno (Temperatura, Humedad según textura {SOIL_TEXTURES[soilTexture].name_es}, pH y Lluvia a 30 días).
-                </p>
+              <div className="bg-white border border-[#D5D5D5] rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-[#202020]">Cultivos aptos</h2>
+                  <p className="text-xs text-[#777777] mt-1">
+                    Evaluación técnica sobre las 4 variables (Suelo {SOIL_TEXTURES[soilTexture].name_es}). Listo para cargar Dataset_Crop.csv.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-[#777777] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={cropSearch}
+                      onChange={(e) => setCropSearch(e.target.value)}
+                      placeholder="Buscar cultivo o etiqueta..."
+                      className="bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#202020] focus:outline-none focus:border-[#1E1E1E]"
+                    />
+                  </div>
+
+                  <select
+                    value={cropFilterClass}
+                    onChange={(e) => setCropFilterClass(e.target.value as 'all' | ViabilityClass)}
+                    className="bg-[#F8F8F8] border border-[#D5D5D5] rounded-xl px-3 py-1.5 text-xs font-semibold text-[#202020] focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">Todos ({evaluatedCrops.length})</option>
+                    <option value="recomendado">Recomendados (4/4)</option>
+                    <option value="condicionado">Condicionados (3/4)</option>
+                    <option value="no_recomendado">No recomendados (&le;2/4)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {evaluatedCrops.map(({ crop, checks, variables_ok, classification, ml_suitability_score }) => {
+                {filteredCrops.map(({ crop, checks, variables_ok, classification, ml_suitability_score }) => {
                   const isExpanded = expandedCropId === crop.id;
                   const statusBadge =
                     classification === 'recomendado'
-                      ? { text: 'Recomendado', bg: 'bg-[#159447]/15 text-[#159447]' }
+                      ? { text: 'Recomendado (4/4)', bg: 'bg-[#159447]/15 text-[#159447] border-[#159447]/30' }
                       : classification === 'condicionado'
-                      ? { text: 'Recomendado con condiciones', bg: 'bg-[#E9A11B]/15 text-[#E9A11B]' }
-                      : { text: 'No recomendado actualmente', bg: 'bg-[#E34545]/15 text-[#E34545]' };
+                      ? { text: 'Condicionado (3/4)', bg: 'bg-[#E9A11B]/15 text-[#E9A11B] border-[#E9A11B]/30' }
+                      : { text: `No recomendado (${variables_ok}/4)`, bg: 'bg-[#E34545]/15 text-[#E34545] border-[#E34545]/30' };
 
                   return (
                     <article
                       key={crop.id}
-                      className="bg-white border border-[#D5D5D5] rounded-2xl overflow-hidden shadow-sm flex flex-col"
+                      className="bg-white border border-[#D5D5D5] rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-4"
                     >
-                      <div className="h-36 w-full bg-[#F8F8F8] relative overflow-hidden">
-                        <img src={crop.image} alt={crop.common_name_es} className="w-full h-full object-cover" />
-                        <div className="absolute top-3 right-3 bg-[#1E1E1E] text-white text-xs font-bold px-3 py-1 rounded-full">
-                          {ml_suitability_score}% compatible
+                      <div>
+                        <div className="flex items-start justify-between gap-2 pb-3 border-b border-[#EEEEEE]">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-base font-bold text-[#202020]">{crop.common_name_es}</h3>
+                              <span className="text-[11px] font-semibold bg-[#F4F4F4] text-[#555555] px-2 py-0.5 rounded-md border border-[#E0E0E0]">
+                                {crop.category}
+                              </span>
+                              {crop.dataset_label && (
+                                <span className="text-[10px] font-mono bg-[#1E1E1E] text-white px-2 py-0.5 rounded">
+                                  {crop.dataset_label}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs italic text-[#777777] block mt-0.5">{crop.scientific_name}</span>
+                          </div>
+
+                          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border shrink-0 ${statusBadge.bg}`}>
+                            {statusBadge.text}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-[#555555]">Compatibilidad estimada:</span>
+                            <span className="font-bold text-[#202020] tabular-nums">{ml_suitability_score}%</span>
+                          </div>
+                          <div className="w-full h-2 bg-[#EEEEEE] rounded-full overflow-hidden">
+                            <div
+                              className="h-full transition-all duration-300 rounded-full"
+                              style={{
+                                width: `${ml_suitability_score}%`,
+                                backgroundColor:
+                                  classification === 'recomendado'
+                                    ? '#159447'
+                                    : classification === 'condicionado'
+                                    ? '#F39200'
+                                    : '#E34545',
+                              }}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-[#555555]">
+                            <div className="bg-[#F8F8F8] border border-[#EAEAEA] rounded-lg px-2.5 py-1.5">
+                              Ciclo: <strong className="text-[#202020]">{crop.cycle_days_min}–{crop.cycle_days_max} días</strong>
+                            </div>
+                            <div className="bg-[#F8F8F8] border border-[#EAEAEA] rounded-lg px-2.5 py-1.5">
+                              Raíz: <strong className="text-[#202020]">{crop.root_depth_m_min}–{crop.root_depth_m_max} m (p={crop.depletion_fraction_p})</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 mt-3">
+                          {checks.map((chk) => (
+                            <div
+                              key={chk.variable}
+                              className="bg-[#F8F8F8] border border-[#EAEAEA] rounded-lg p-2 text-[11px] flex flex-col justify-between"
+                            >
+                              <div className="flex items-center justify-between text-[#777777]">
+                                <span>{chk.label}</span>
+                                <span
+                                  className={`w-2 h-2 rounded-full ${
+                                    chk.status === 'in_range' ? 'bg-[#159447]' : 'bg-[#E34545]'
+                                  }`}
+                                />
+                              </div>
+                              <div className="flex items-baseline justify-between mt-1">
+                                <strong className="text-xs text-[#202020] tabular-nums">{chk.val}</strong>
+                                <span className="text-[10px] text-[#777777]">Ideal: {chk.range}</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
 
-                      <div className="p-5 flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <div>
-                              <h3 className="text-base font-bold text-[#202020]">{crop.common_name_es}</h3>
-                              <span className="text-xs italic text-[#777777]">{crop.scientific_name}</span>
-                            </div>
-                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${statusBadge.bg}`}>
-                              {statusBadge.text}
-                            </span>
-                          </div>
+                      <div>
+                        <button
+                          onClick={() => setExpandedCropId(isExpanded ? null : crop.id)}
+                          className="w-full py-2 px-3 rounded-xl bg-[#F4F4F4] hover:bg-[#E8E8E8] border border-[#DEDEDE] flex items-center justify-between text-xs font-semibold text-[#202020] cursor-pointer"
+                        >
+                          <span>Ver diagnóstico por variable y notas</span>
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
 
-                          <p className="text-xs text-[#555555] mb-3">
-                            Ciclo estimado: <strong>{crop.cycle_days_min} a {crop.cycle_days_max} días</strong> · {crop.harvest_notes}
-                          </p>
-                        </div>
-
-                        <div>
-                          <button
-                            onClick={() => setExpandedCropId(isExpanded ? null : crop.id)}
-                            className="w-full py-2 px-3 rounded-xl bg-[#F8F8F8] hover:bg-[#EEEEEE] border border-[#E5E5E5] flex items-center justify-between text-xs font-semibold text-[#202020] cursor-pointer"
-                          >
-                            <span>Ver desglose ({variables_ok} de 4 condiciones cumplidas)</span>
-                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-
-                          {isExpanded && (
-                            <div className="mt-3 pt-3 border-t border-[#EEEEEE] space-y-2">
-                              {checks.map((chk) => (
-                                <div key={chk.variable} className="bg-[#F8F8F8] rounded-xl p-2.5 text-xs">
-                                  <div className="flex items-center justify-between font-semibold">
-                                    <span>{chk.label} (Ideal: {chk.range})</span>
-                                    <span
-                                      className={
-                                        chk.status === 'in_range' ? 'text-[#159447]' : 'text-[#E34545]'
-                                      }
-                                    >
-                                      Actual: {chk.val}
-                                    </span>
-                                  </div>
-                                  {chk.advice && (
-                                    <p className="text-[11px] text-[#777777] mt-1">{chk.advice}</p>
-                                  )}
+                        {isExpanded && (
+                          <div className="mt-3 pt-3 border-t border-[#EEEEEE] space-y-2 text-xs">
+                            <p className="text-[#555555] bg-[#F8F8F8] p-2.5 rounded-xl border border-[#EAEAEA]">
+                              <strong>Nota de cosecha:</strong> {crop.harvest_notes}
+                            </p>
+                            {checks.map((chk) => (
+                              <div key={chk.variable} className="bg-[#F8F8F8] rounded-xl p-2.5 border border-[#EAEAEA]">
+                                <div className="flex items-center justify-between font-semibold">
+                                  <span>{chk.label} ({chk.origin})</span>
+                                  <span className={chk.status === 'in_range' ? 'text-[#159447]' : 'text-[#E34545]'}>
+                                    {chk.status === 'in_range' ? 'En rango' : chk.status === 'below' ? 'Bajo' : 'Alto'}
+                                  </span>
                                 </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                                {chk.advice && <p className="text-[11px] text-[#555555] mt-1">{chk.advice}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </article>
                   );
@@ -1428,17 +1842,25 @@ export function App() {
           )}
 
           {/* ==================================================================
-              VISTA 4: ESTADO DE LOS SENSORES
+              VISTA 4: ESTADO DE LOS SENSORES (COMPLETA)
              ================================================================== */}
           {activeTab === 'sensors' && (
             <section className="space-y-4">
-              <div className="bg-white border border-[#D5D5D5] rounded-2xl p-6 flex items-center justify-between">
+              <div className="bg-white border border-[#D5D5D5] rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-[#202020]">Estado de los sensores</h2>
-                  <p className="text-xs text-[#777777] mt-0.5">4 de 4 canales operativos en la parcela</p>
+                  <p className="text-xs text-[#777777] mt-0.5">
+                    Dispositivo {deviceUid} · Canal seleccionado:{' '}
+                    <strong>{espTransport === 'wifi_mqtt' ? 'Wi-Fi (MQTT)' : 'Bluetooth (BLE)'}</strong>
+                  </p>
                 </div>
-                <span className="inline-flex items-center gap-2 text-xs font-bold text-[#159447] bg-[#159447]/10 px-3 py-1.5 rounded-full">
-                  <ShieldCheck className="w-4 h-4" /> En línea
+                <span
+                  className={`inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full ${
+                    espConnected ? 'text-[#159447] bg-[#159447]/10' : 'text-[#E34545] bg-[#E34545]/10'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  {espConnected ? '4 de 4 canales en línea' : 'ESP32 Desconectado'}
                 </span>
               </div>
 
@@ -1447,32 +1869,28 @@ export function App() {
                   {
                     name: 'Sensor de Temperatura (DS18B20)',
                     reading: `${latest.soil_temperature_c.toFixed(1)} °C`,
-                    comm: 'Conectado · Lectura estable en raíz',
-                    status: 'ok',
+                    comm: `Transporte ${latest.transport.toUpperCase()} · Sonda térmica en raíz`,
                   },
                   {
                     name: 'Sensor de Humedad Capacitivo',
-                    reading: `${latest.soil_moisture_pct.toFixed(1)} %`,
-                    comm: 'Conectado · Calibrado para suelo ' + SOIL_TEXTURES[soilTexture].name_es,
-                    status: 'ok',
+                    reading: `${latest.soil_moisture_pct.toFixed(1)} % vol`,
+                    comm: `Transporte ${latest.transport.toUpperCase()} · Calibrado para suelo ${SOIL_TEXTURES[soilTexture].name_es}`,
                   },
                   {
-                    name: 'Canal de Nivel de pH',
+                    name: 'Módulo de Nivel de pH (Simulado)',
                     reading: `${latest.soil_ph.toFixed(2)} pH`,
-                    comm: 'Activo · Monitoreo químico del terreno',
-                    status: 'ok',
+                    comm: 'Origen: simulado (soil_ph_observations · v3.3)',
                   },
                   {
                     name: 'Canal de Precipitación (NASA POWER)',
                     reading: `${latest.precip_total_mm.toFixed(1)} mm (30 días)`,
-                    comm: 'Sincronizado · Serie MERRA-2 PRECTOTCORR',
-                    status: 'ok',
+                    comm: 'Origen: nasa_power · Producto: merra2_prectotcorr',
                   },
                 ].map((s, idx) => (
                   <div key={idx} className="bg-white border border-[#D5D5D5] rounded-2xl p-5 flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#159447]" />
+                        <span className={`w-2.5 h-2.5 rounded-full ${espConnected ? 'bg-[#159447]' : 'bg-[#E34545]'}`} />
                         <h3 className="text-sm font-bold text-[#202020]">{s.name}</h3>
                       </div>
                       <p className="text-xs text-[#777777] mb-3">{s.comm}</p>
@@ -1480,7 +1898,7 @@ export function App() {
                         Última lectura: {s.reading} ({latest.timeLabel})
                       </span>
                     </div>
-                    <Radio className="w-5 h-5 text-[#159447] shrink-0" />
+                    <Radio className={`w-5 h-5 shrink-0 ${espConnected ? 'text-[#159447]' : 'text-[#E34545]'}`} />
                   </div>
                 ))}
               </div>
@@ -1488,14 +1906,14 @@ export function App() {
           )}
 
           {/* ==================================================================
-              VISTA 5: RECOMENDACIONES (REGLAS OFICIALES advice_rules DEL SQL)
+              VISTA 5: RECOMENDACIONES (COMPLETA CON LAS 4 VARIABLES DE ADVICE_RULES)
              ================================================================== */}
           {activeTab === 'advice' && (
             <section className="space-y-4">
               <div className="bg-white border border-[#D5D5D5] rounded-2xl p-6">
                 <h2 className="text-xl font-bold text-[#202020]">Recomendaciones para cuidar el suelo</h2>
                 <p className="text-xs text-[#777777] mt-0.5">
-                  Acciones concretas generadas a partir de las lecturas actuales de tu parcela.
+                  Diagnóstico agronómico generado en tiempo real con las reglas de advice_rules (PostgreSQL v3.3).
                 </p>
               </div>
 
@@ -1504,49 +1922,99 @@ export function App() {
                   const items: { priority: 'Alta' | 'Media' | 'Baja'; title: string; detail: string; metric: string }[] = [];
                   const moistTarget = computeFao56MoistureRange(0.5, soilTexture);
 
+                  // 1. Humedad
                   if (latest.soil_moisture_pct < moistTarget.minPct) {
                     items.push({
                       priority: 'Alta',
                       title: 'Aplicar riego de apoyo en la parcela',
                       detail: formatAdviceRule('soil_moisture', 'below', latest.soil_moisture_pct, moistTarget.minPct),
-                      metric: `Humedad actual: ${latest.soil_moisture_pct.toFixed(1)}%`,
+                      metric: `Humedad: ${latest.soil_moisture_pct.toFixed(1)}%`,
                     });
                   } else if (latest.soil_moisture_pct > moistTarget.maxPct) {
                     items.push({
                       priority: 'Alta',
-                      title: 'Pausar riegos y vigilar el drenaje',
+                      title: 'Suspender riego y supervisar drenaje',
                       detail: formatAdviceRule('soil_moisture', 'above', latest.soil_moisture_pct, moistTarget.maxPct),
-                      metric: `Humedad actual: ${latest.soil_moisture_pct.toFixed(1)}%`,
+                      metric: `Humedad: ${latest.soil_moisture_pct.toFixed(1)}%`,
                     });
                   } else {
                     items.push({
                       priority: 'Baja',
-                      title: 'Humedad en nivel adecuado',
-                      detail: `El suelo conserva ${latest.soil_moisture_pct.toFixed(1)}% de humedad, dentro del rango ideal (${moistTarget.minPct}% a ${moistTarget.maxPct}%) para tierra ${SOIL_TEXTURES[soilTexture].name_es}. Mantén el calendario actual sin regar de más.`,
-                      metric: 'Humedad en rango',
+                      title: 'Humedad volumétrica en rango óptimo (FAO-56)',
+                      detail: `El suelo registra ${latest.soil_moisture_pct.toFixed(1)}%, dentro del rango ideal (${moistTarget.minPct}%–${moistTarget.maxPct}%) para tierra ${SOIL_TEXTURES[soilTexture].name_es}.`,
+                      metric: `Humedad: ${latest.soil_moisture_pct.toFixed(1)}%`,
                     });
                   }
 
+                  // 2. Temperatura
+                  if (latest.soil_temperature_c < 18) {
+                    items.push({
+                      priority: 'Media',
+                      title: 'Proteger suelo ante baja temperatura',
+                      detail: formatAdviceRule('soil_temperature', 'below', latest.soil_temperature_c, 18),
+                      metric: `Temp: ${latest.soil_temperature_c.toFixed(1)} °C`,
+                    });
+                  } else if (latest.soil_temperature_c > 30) {
+                    items.push({
+                      priority: 'Media',
+                      title: 'Mitigar temperatura alta en raíz',
+                      detail: formatAdviceRule('soil_temperature', 'above', latest.soil_temperature_c, 28),
+                      metric: `Temp: ${latest.soil_temperature_c.toFixed(1)} °C`,
+                    });
+                  } else {
+                    items.push({
+                      priority: 'Baja',
+                      title: 'Temperatura de raíz favorable para germinación',
+                      detail: `Lectura térmica estable en ${latest.soil_temperature_c.toFixed(1)} °C, adecuada para el desarrollo radicular.`,
+                      metric: `Temp: ${latest.soil_temperature_c.toFixed(1)} °C`,
+                    });
+                  }
+
+                  // 3. pH Simulado
                   if (latest.soil_ph < 5.8) {
                     items.push({
                       priority: 'Media',
-                      title: 'Corregir acidez del terreno',
+                      title: 'Corregir acidez del suelo (pH simulado)',
                       detail: formatAdviceRule('soil_ph', 'below', latest.soil_ph, 6.2),
-                      metric: `pH actual: ${latest.soil_ph.toFixed(2)}`,
+                      metric: `pH: ${latest.soil_ph.toFixed(2)}`,
                     });
                   } else if (latest.soil_ph > 7.2) {
                     items.push({
                       priority: 'Media',
-                      title: 'Reducir alcalinidad del suelo',
+                      title: 'Reducir alcalinidad del suelo (pH simulado)',
                       detail: formatAdviceRule('soil_ph', 'above', latest.soil_ph, 6.8),
-                      metric: `pH actual: ${latest.soil_ph.toFixed(2)}`,
+                      metric: `pH: ${latest.soil_ph.toFixed(2)}`,
                     });
                   } else {
                     items.push({
                       priority: 'Baja',
-                      title: 'Nivel de pH equilibrado para absorción de nutrientes',
-                      detail: `Con un pH de ${latest.soil_ph.toFixed(2)}, las raíces pueden aprovechar correctamente los nutrientes naturales de la tierra sin requerir correctores químicos.`,
-                      metric: `pH actual: ${latest.soil_ph.toFixed(2)}`,
+                      title: 'Nivel de pH simulado en equilibrio químico',
+                      detail: `Con un pH de ${latest.soil_ph.toFixed(2)}, la disponibilidad de nutrientes en la solución del suelo es óptima.`,
+                      metric: `pH: ${latest.soil_ph.toFixed(2)}`,
+                    });
+                  }
+
+                  // 4. Precipitación
+                  if (latest.precip_total_mm < 45) {
+                    items.push({
+                      priority: 'Media',
+                      title: 'Compensar baja precipitación acumulada',
+                      detail: formatAdviceRule('rainfall', 'below', latest.precip_total_mm, 60),
+                      metric: `Lluvia 30d: ${latest.precip_total_mm.toFixed(1)} mm`,
+                    });
+                  } else if (latest.precip_total_mm > 140) {
+                    items.push({
+                      priority: 'Alta',
+                      title: 'Prevenir saturación por exceso de lluvia',
+                      detail: formatAdviceRule('rainfall', 'above', latest.precip_total_mm, 110),
+                      metric: `Lluvia 30d: ${latest.precip_total_mm.toFixed(1)} mm`,
+                    });
+                  } else {
+                    items.push({
+                      priority: 'Baja',
+                      title: 'Acumulado pluvial de 30 días en rango normal',
+                      detail: `La celda climática NASA POWER reporta ${latest.precip_total_mm.toFixed(1)} mm acumulados, favorable para el ciclo actual.`,
+                      metric: `Lluvia 30d: ${latest.precip_total_mm.toFixed(1)} mm`,
                     });
                   }
 
@@ -1584,7 +2052,7 @@ export function App() {
         </main>
       </div>
 
-      {/* BURBUJA DE CHAT IA FLOTANTE EN ESQUINA INFERIOR DERECHA */}
+      {/* BURBUJA FLOTANTE DEL AGENTE IA */}
       <AgroAssistantBubble latest={latest} texture={soilTexture} />
     </div>
   );
