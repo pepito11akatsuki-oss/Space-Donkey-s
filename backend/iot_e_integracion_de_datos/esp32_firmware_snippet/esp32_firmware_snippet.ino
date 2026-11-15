@@ -10,9 +10,9 @@
 #include <DallasTemperature.h>
 
 // Configuración de Red
-const char* ssid = "TU_WIFI_SSID";
-const char* password = "TU_WIFI_PASSWORD";
-const char* mqtt_server = "IP_DE_TU_SERVIDOR_MQTT";
+const char* ssid = "eventos_its";
+const char* password = "4W5_3v3nt3$$1T5";
+const char* mqtt_server = "10.100.1.139";
 const int mqtt_port = 1883;
 
 // Identificación
