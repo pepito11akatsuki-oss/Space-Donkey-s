@@ -23,7 +23,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 // Pines de sensores
-#const ONE_WIRE_BUS 4
+#define ONE_WIRE_BUS 4
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 const int soilMoisturePin = A0; // GPIO0 (ADC1_CH0)

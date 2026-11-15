@@ -18,6 +18,8 @@ def convert_soil_moisture(raw_adc: Optional[int], calibration_params: dict) -> O
     adc_wet = calibration_params.get("adc_wet", 1200)
     
     # Restricción física
+    if adc_dry == adc_wet:
+        return 0.0
     if raw_adc >= adc_dry:
         return 0.0
     if raw_adc <= adc_wet:
