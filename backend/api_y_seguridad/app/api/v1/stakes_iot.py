@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from decimal import Decimal
 import secrets
 from typing import Any, Literal
@@ -36,7 +36,7 @@ class StakeUpdateRequest(BaseModel):
 class StakeOut(BaseModel):
     id: UUID
     org_id: UUID
-    parcel_id: UUID
+    parcel_id: UUID | None = None
     device_uid: str
     firmware_version: str | None
     last_transport: str | None

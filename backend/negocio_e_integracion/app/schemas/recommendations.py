@@ -33,7 +33,7 @@ class AICheckOutput(BaseModel):
             raise ValueError(f"{self.variable}: 'not_evaluated' exige measured=None.")
         if self.status != "not_evaluated" and self.measured is None:
             raise ValueError(f"{self.variable}: '{self.status}' exige un valor medido.")
-        if self.variable == "soil_ph" and self.origin == "simulado":
+        if self.origin in ("simulado", "dataset_estimado"):
             self.is_simulated = True
         if self.variable == "rainfall" and self.status != "not_evaluated":
             if self.origin != "nasa_power":
@@ -45,6 +45,8 @@ class AICropEvaluationOutput(BaseModel):
     crop_id: int
     variables_ok: int = Field(ge=0, le=4)
     classification: ViabilityClass
+    evaluation_status: Literal["complete", "incomplete"]
+    recommendation_eligible: bool
     ml_suitability_score: Decimal | None = Field(default=None, ge=0, le=100)
     projected_days: int | None = Field(default=None, gt=0)
     future_risk_summary: str | None = None
@@ -69,6 +71,23 @@ class AICropEvaluationOutput(BaseModel):
             raise ValueError(
                 f"Clasificación '{self.classification}' inválida para {self.variables_ok}/4."
             )
+        expected_complete = all(
+            check.status != "not_evaluated" and not check.is_simulated
+            for check in self.checks
+        )
+
+        expected_status = "complete" if expected_complete else "incomplete"
+
+        if self.evaluation_status != expected_status:
+            raise ValueError(
+                "evaluation_status no coincide con las mediciones."
+            )
+
+        if self.recommendation_eligible != expected_complete:
+            raise ValueError(
+                "recommendation_eligible no coincide con las mediciones."
+            )
+
         return self
 
 

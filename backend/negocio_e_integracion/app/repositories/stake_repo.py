@@ -26,7 +26,7 @@ class StakeRepository:
         q = text("""
             UPDATE stakes
             SET parcel_id = :parcel_id,
-                installed_at = CASE WHEN :parcel_id IS NOT NULL THEN COALESCE(installed_at, now()) ELSE installed_at END
+                installed_at = CASE WHEN CAST(:parcel_id AS UUID) IS NOT NULL THEN COALESCE(installed_at, now()) ELSE installed_at END
             WHERE id = :stake_id
             RETURNING id, device_uid, parcel_id, last_transport, last_seen_at, installed_at, is_active
         """)

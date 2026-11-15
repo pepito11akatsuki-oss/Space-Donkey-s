@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+﻿from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from app.schemas.parcels import ParcelCreate, ParcelCropAssign, ParcelUpdate
 from app.schemas.recommendations import RecommendationRunRequest
 from app.services.alert_service import AlertService
 from app.services.climate_service import ClimateService
+from app.services.soil_ph_service import get_soil_ph
 from app.services.recommendation_service import RecommendationService
 
 api_router = APIRouter(prefix="/api/v1")
@@ -120,6 +121,38 @@ async def list_parcel_crops(parcel_id: UUID, db: AsyncSession = Depends(get_db))
     return await ParcelRepository(db).list_crops(parcel_id)
 
 
+
+@api_router.get("/parcels/{parcel_id}/soil/ph-estimate", tags=["Suelo"])
+async def parcel_soil_ph_estimate(
+    parcel_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    parcel = await ParcelRepository(db).get_by_id(parcel_id)
+
+    if not parcel:
+        raise NotFoundError("Parcela no encontrada.")
+
+    latitude = parcel.get("latitude")
+    longitude = parcel.get("longitude")
+
+    if latitude is None or longitude is None:
+        return {
+            "parcel_id": str(parcel_id),
+            "ph": None,
+            "source": "unavailable",
+            "simulated": False,
+            "message": "La parcela no tiene coordenadas.",
+        }
+
+    result = await get_soil_ph(
+        latitude=float(latitude),
+        longitude=float(longitude),
+    )
+
+    return {
+        "parcel_id": str(parcel_id),
+        **result,
+    }
 # --- Estacas ---
 @api_router.get("/stakes", tags=["Estacas"])
 async def list_stakes(parcel_id: UUID | None = None, db: AsyncSession = Depends(get_db)):

@@ -229,6 +229,56 @@ class RecommendationRepository:
             },
         )
 
+    @staticmethod
+    def evaluate_history_safety(
+        checks: list[dict[str, Any]],
+    ) -> tuple[str, bool]:
+        expected = {
+            "soil_temperature",
+            "soil_moisture",
+            "soil_ph",
+            "rainfall",
+        }
+
+        if len(checks) != 4:
+            return "incomplete", False
+
+        variables = [check.get("variable") for check in checks]
+
+        if set(variables) != expected:
+            return "incomplete", False
+
+        for check in checks:
+            if check.get("measured") is None:
+                return "incomplete", False
+
+            if check.get("status") not in {
+                "in_range",
+                "below",
+                "above",
+            }:
+                return "incomplete", False
+
+            if check.get("is_simulated") is not False:
+                return "incomplete", False
+
+            origin = check.get("origin")
+
+            if origin in {
+                None,
+                "simulado",
+                "dataset_estimado",
+            }:
+                return "incomplete", False
+
+            if (
+                check["variable"] == "rainfall"
+                and origin != "nasa_power"
+            ):
+                return "incomplete", False
+
+        return "complete", True
+
     async def list_parcel_runs(self, parcel_id: UUID, limit: int = 10) -> list[dict[str, Any]]:
         runs_q = text("""
             SELECT id, soil_window_days, rainfall_window_days, window_end, created_at
@@ -273,6 +323,14 @@ class RecommendationRepository:
         for res in results:
             item = dict(res)
             item["checks"] = checks_by_key.get((res["run_id"], res["crop_id"]), [])
+            status, eligible = self.evaluate_history_safety(item["checks"])
+            item["evaluation_status"] = status
+            item["recommendation_eligible"] = eligible
+
+            if not eligible:
+                for check in item["checks"]:
+                    check["advice_template"] = None
+
             res_by_run.setdefault(res["run_id"], []).append(item)
 
         for r in runs:

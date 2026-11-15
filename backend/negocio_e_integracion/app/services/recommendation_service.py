@@ -116,7 +116,12 @@ class RecommendationService:
                 advice_id = advice_rule["id"] if advice_rule else None
                 advice_text = None
 
-                if advice_rule and chk.measured is not None:
+                if (
+                    advice_rule
+                    and chk.measured is not None
+                    and not chk.is_simulated
+                    and ev.recommendation_eligible
+                ):
                     req_range = crop_meta["requirements"].get(chk.variable, {})
                     fallback_target = (
                         req_range.get("optimal_min")
@@ -165,6 +170,8 @@ class RecommendationService:
                     "scientific_name": crop_meta["scientific_name"],
                     "variables_ok": ev.variables_ok,
                     "classification": ev.classification,
+                    "evaluation_status": ev.evaluation_status,
+                    "recommendation_eligible": ev.recommendation_eligible,
                     "ml_suitability_score": float(ev.ml_suitability_score)
                     if ev.ml_suitability_score is not None
                     else None,

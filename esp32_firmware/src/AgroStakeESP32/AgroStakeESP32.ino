@@ -1,0 +1,162 @@
+﻿#include <WiFi.h>
+#include <HTTPClient.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <time.h>
+#include "secrets.h"
+
+const char* DEVICE_UID = "ESP32C3-STAKE-001";
+const char* API_URL = "http://10.100.1.139:8000/api/v1/iot/telemetry";
+
+constexpr int PIN_ONEWIRE = 4;
+constexpr int PIN_HUMEDAD = 34;
+
+constexpr int VALOR_SECO = 3300;
+constexpr int VALOR_MOJADO = 1300;
+
+constexpr unsigned long INTERVALO = 30000;
+
+OneWire oneWire(PIN_ONEWIRE);
+DallasTemperature sensors(&oneWire);
+
+unsigned long ultimaLectura = 0;
+unsigned long ultimoIntentoWiFi = 0;
+
+void conectarWiFi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+
+  if (millis() - ultimoIntentoWiFi < 10000) return;
+  ultimoIntentoWiFi = millis();
+
+  Serial.println("Conectando a Wi-Fi...");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(AGRO_WIFI_SSID, AGRO_WIFI_PASSWORD);
+}
+
+void diagnosticarWiFi() {
+  Serial.println("\n=== DIAGNOSTICO DE RED ===");
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("WIFI: CONECTADO");
+
+    Serial.print("SSID: ");
+    Serial.println(WiFi.SSID());
+
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+
+    Serial.print("RSSI: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+
+    Serial.print("Gateway: ");
+    Serial.println(WiFi.gatewayIP());
+
+    Serial.print("DNS: ");
+    Serial.println(WiFi.dnsIP());
+  } else {
+    Serial.println("WIFI: DESCONECTADO");
+  }
+}
+void enviarTelemetria(float temperatura, int raw, int humedad) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Sin Wi-Fi. Lectura no enviada.");
+    return;
+  }
+
+  HTTPClient http;
+  http.setTimeout(8000);
+
+  if (!http.begin(API_URL)) {
+    Serial.println("Error iniciando HTTP.");
+    return;
+  }
+
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-IoT-API-Key", AGRO_IOT_API_KEY);
+
+  String json = "{\"device_uid\":\"";
+  json += DEVICE_UID;
+  json += "\",\"msg_id\":\"";
+  json += String((uint32_t)(esp_random()));
+  json += "\",\"transport\":\"wifi_mqtt\"";
+  json += ",\"soil_moisture_raw\":";
+  json += String(raw);
+  json += ",\"soil_moisture_pct\":";
+  json += String(humedad);
+
+  if (temperatura > -127.0f && temperatura <= 125.0f) {
+    json += ",\"soil_temperature_c\":";
+    json += String(temperatura, 2);
+  }
+
+  json += ",\"is_simulated\":false}";
+
+  int response = http.POST(json);
+
+  Serial.print("HTTP: ");
+  Serial.println(response);
+
+  if (response > 0) {
+    Serial.println(http.getString());
+  } else {
+    Serial.println(http.errorToString(response));
+  }
+
+  http.end();
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  analogReadResolution(12);
+  sensors.begin();
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(AGRO_WIFI_SSID, AGRO_WIFI_PASSWORD);
+
+  Serial.println("\n=== AGROSTAKE ESP32 ===");
+  Serial.println("Sensores inicializados.");
+}
+
+void loop() {
+  static unsigned long ultimaDiagnostica = 0;
+  if (millis() - ultimaDiagnostica >= 15000) {
+    ultimaDiagnostica = millis();
+    diagnosticarWiFi();
+  }
+  conectarWiFi();
+
+  if (millis() - ultimaLectura >= INTERVALO || ultimaLectura == 0) {
+    ultimaLectura = millis();
+
+    sensors.requestTemperatures();
+    float tempC = sensors.getTempCByIndex(0);
+
+    int raw = analogRead(PIN_HUMEDAD);
+
+    int humedad = map(raw, VALOR_SECO, VALOR_MOJADO, 0, 100);
+    humedad = constrain(humedad, 0, 100);
+
+    Serial.println("\n=== LECTURA DE SENSORES ===");
+
+    Serial.print("Temperatura: ");
+    Serial.println(tempC);
+
+    Serial.print("Humedad RAW: ");
+    Serial.println(raw);
+
+    Serial.print("Humedad: ");
+    Serial.print(humedad);
+    Serial.println("%");
+
+    if (tempC == DEVICE_DISCONNECTED_C) {
+      Serial.println("ADVERTENCIA: DS18B20 desconectado.");
+    }
+
+    enviarTelemetria(tempC, raw, humedad);
+  }
+
+  delay(100);
+}

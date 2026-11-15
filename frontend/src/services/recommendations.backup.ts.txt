@@ -1,0 +1,51 @@
+﻿const API_URL = "http://127.0.0.1:8002/api/v1";
+
+export interface CropVariableCheck {
+  variable: string;
+  measured: number | null;
+  status: string;
+  origin: string | null;
+  is_simulated: boolean;
+  advice_template: string | null;
+}
+
+export interface CropRecommendation {
+  crop_id: number;
+  common_name_es: string;
+  scientific_name: string;
+  variables_ok: number;
+  classification: string;
+  ml_suitability_score: number | null;
+  projected_days: number | null;
+  future_risk_summary: string | null;
+  checks: CropVariableCheck[];
+}
+
+export interface RecommendationRun {
+  id: string;
+  soil_window_days: number;
+  rainfall_window_days: number;
+  window_end: string;
+  created_at: string;
+  results: CropRecommendation[];
+}
+
+export async function getRecommendations(
+  parcelId: string,
+  accessToken: string
+): Promise<RecommendationRun> {
+  const response = await fetch(
+    `${API_URL}/parcels/${encodeURIComponent(parcelId)}/recommendations`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Error HTTP ${response.status} al consultar recomendaciones`);
+  }
+
+  return response.json() as Promise<RecommendationRun>;
+}
