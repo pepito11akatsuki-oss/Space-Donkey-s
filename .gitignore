@@ -23,16 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
-# Backend Python
 .venv/
 __pycache__/
-*.py[cod]
 .env
-.pytest_cache/
 
-# Python / FastAPI
+.env
 .venv/
 __pycache__/
-*.py[cod]
-.env
 .pytest_cache/
