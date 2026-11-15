@@ -1,0 +1,1234 @@
+{
+  "apple": {
+    "common_name_es": "Manzana",
+    "cycle_days_min": 150,
+    "cycle_days_max": 180,
+    "cycle_days_avg": 165,
+    "depletion_fraction_p": 0.5,
+    "defaults_npk": {
+      "N": 24.0,
+      "P": 136.5,
+      "K": 200.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.2,
+        12.0
+      ],
+      "loamy_sand": [
+        10.8,
+        15.0
+      ],
+      "sandy_loam": [
+        17.0,
+        23.0
+      ],
+      "loam": [
+        18.5,
+        25.0
+      ],
+      "silt_loam": [
+        22.0,
+        29.0
+      ],
+      "clay": [
+        29.0,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        21.17,
+        23.83
+      ],
+      "soil_moisture": [
+        90.24,
+        94.68
+      ],
+      "soil_ph": [
+        5.56,
+        6.4
+      ],
+      "rainfall": [
+        102.24,
+        123.6
+      ]
+    }
+  },
+  "banana": {
+    "common_name_es": "Plátano",
+    "cycle_days_min": 270,
+    "cycle_days_max": 365,
+    "cycle_days_avg": 317,
+    "depletion_fraction_p": 0.35,
+    "defaults_npk": {
+      "N": 100.5,
+      "P": 81.0,
+      "K": 50.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        9.4,
+        12.0
+      ],
+      "loamy_sand": [
+        12.0,
+        15.0
+      ],
+      "sandy_loam": [
+        18.8,
+        23.0
+      ],
+      "loam": [
+        20.4,
+        25.0
+      ],
+      "silt_loam": [
+        24.1,
+        29.0
+      ],
+      "clay": [
+        31.1,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        25.15,
+        29.42
+      ],
+      "soil_moisture": [
+        76.11,
+        84.52
+      ],
+      "soil_ph": [
+        5.57,
+        6.44
+      ],
+      "rainfall": [
+        90.81,
+        119.0
+      ]
+    }
+  },
+  "blackgram": {
+    "common_name_es": "Lenteja negra",
+    "cycle_days_min": 75,
+    "cycle_days_max": 90,
+    "cycle_days_avg": 82,
+    "depletion_fraction_p": 0.45,
+    "defaults_npk": {
+      "N": 41.0,
+      "P": 67.0,
+      "K": 19.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.6,
+        12.0
+      ],
+      "loamy_sand": [
+        11.2,
+        15.0
+      ],
+      "sandy_loam": [
+        17.6,
+        23.0
+      ],
+      "loam": [
+        19.1,
+        25.0
+      ],
+      "silt_loam": [
+        22.7,
+        29.0
+      ],
+      "clay": [
+        29.7,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        25.65,
+        34.14
+      ],
+      "soil_moisture": [
+        60.44,
+        69.1
+      ],
+      "soil_ph": [
+        6.54,
+        7.71
+      ],
+      "rainfall": [
+        61.7,
+        74.22
+      ]
+    }
+  },
+  "chickpea": {
+    "common_name_es": "Garbanzo",
+    "cycle_days_min": 90,
+    "cycle_days_max": 110,
+    "cycle_days_avg": 100,
+    "depletion_fraction_p": 0.5,
+    "defaults_npk": {
+      "N": 39.0,
+      "P": 68.0,
+      "K": 79.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.2,
+        12.0
+      ],
+      "loamy_sand": [
+        10.8,
+        15.0
+      ],
+      "sandy_loam": [
+        17.0,
+        23.0
+      ],
+      "loam": [
+        18.5,
+        25.0
+      ],
+      "silt_loam": [
+        22.0,
+        29.0
+      ],
+      "clay": [
+        29.0,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        17.16,
+        20.72
+      ],
+      "soil_moisture": [
+        14.42,
+        19.69
+      ],
+      "soil_ph": [
+        6.18,
+        8.74
+      ],
+      "rainfall": [
+        68.47,
+        93.36
+      ]
+    }
+  },
+  "coconut": {
+    "common_name_es": "Coco",
+    "cycle_days_min": 365,
+    "cycle_days_max": 365,
+    "cycle_days_avg": 365,
+    "depletion_fraction_p": 0.5,
+    "defaults_npk": {
+      "N": 24.0,
+      "P": 15.5,
+      "K": 31.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.2,
+        12.0
+      ],
+      "loamy_sand": [
+        10.8,
+        15.0
+      ],
+      "sandy_loam": [
+        17.0,
+        23.0
+      ],
+      "loam": [
+        18.5,
+        25.0
+      ],
+      "silt_loam": [
+        22.0,
+        29.0
+      ],
+      "clay": [
+        29.0,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        25.1,
+        29.53
+      ],
+      "soil_moisture": [
+        90.98,
+        99.65
+      ],
+      "soil_ph": [
+        5.55,
+        6.42
+      ],
+      "rainfall": [
+        134.03,
+        224.32
+      ]
+    }
+  },
+  "coffee": {
+    "common_name_es": "Café",
+    "cycle_days_min": 270,
+    "cycle_days_max": 365,
+    "cycle_days_avg": 317,
+    "depletion_fraction_p": 0.4,
+    "defaults_npk": {
+      "N": 103.0,
+      "P": 29.0,
+      "K": 30.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        9.0,
+        12.0
+      ],
+      "loamy_sand": [
+        11.6,
+        15.0
+      ],
+      "sandy_loam": [
+        18.2,
+        23.0
+      ],
+      "loam": [
+        19.8,
+        25.0
+      ],
+      "silt_loam": [
+        23.4,
+        29.0
+      ],
+      "clay": [
+        30.4,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        23.18,
+        27.58
+      ],
+      "soil_moisture": [
+        51.09,
+        68.48
+      ],
+      "soil_ph": [
+        6.08,
+        7.46
+      ],
+      "rainfall": [
+        120.6,
+        194.92
+      ]
+    }
+  },
+  "cotton": {
+    "common_name_es": "Algodón",
+    "cycle_days_min": 150,
+    "cycle_days_max": 180,
+    "cycle_days_avg": 165,
+    "depletion_fraction_p": 0.65,
+    "defaults_npk": {
+      "N": 117.0,
+      "P": 46.0,
+      "K": 19.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        7.1,
+        12.0
+      ],
+      "loamy_sand": [
+        9.5,
+        15.0
+      ],
+      "sandy_loam": [
+        15.2,
+        23.0
+      ],
+      "loam": [
+        16.5,
+        25.0
+      ],
+      "silt_loam": [
+        19.9,
+        29.0
+      ],
+      "clay": [
+        26.9,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        22.14,
+        25.69
+      ],
+      "soil_moisture": [
+        75.62,
+        84.56
+      ],
+      "soil_ph": [
+        6.0,
+        7.95
+      ],
+      "rainfall": [
+        62.64,
+        97.81
+      ]
+    }
+  },
+  "grapes": {
+    "common_name_es": "Uva",
+    "cycle_days_min": 150,
+    "cycle_days_max": 180,
+    "cycle_days_avg": 165,
+    "depletion_fraction_p": 0.45,
+    "defaults_npk": {
+      "N": 24.0,
+      "P": 133.0,
+      "K": 201.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.6,
+        12.0
+      ],
+      "loamy_sand": [
+        11.2,
+        15.0
+      ],
+      "sandy_loam": [
+        17.6,
+        23.0
+      ],
+      "loam": [
+        19.1,
+        25.0
+      ],
+      "silt_loam": [
+        22.7,
+        29.0
+      ],
+      "clay": [
+        29.7,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        9.94,
+        40.69
+      ],
+      "soil_moisture": [
+        80.12,
+        83.72
+      ],
+      "soil_ph": [
+        5.56,
+        6.48
+      ],
+      "rainfall": [
+        65.52,
+        74.41
+      ]
+    }
+  },
+  "jute": {
+    "common_name_es": "Yute",
+    "cycle_days_min": 120,
+    "cycle_days_max": 150,
+    "cycle_days_avg": 135,
+    "depletion_fraction_p": 0.45,
+    "defaults_npk": {
+      "N": 78.0,
+      "P": 46.0,
+      "K": 40.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.6,
+        12.0
+      ],
+      "loamy_sand": [
+        11.2,
+        15.0
+      ],
+      "sandy_loam": [
+        17.6,
+        23.0
+      ],
+      "loam": [
+        19.1,
+        25.0
+      ],
+      "silt_loam": [
+        22.7,
+        29.0
+      ],
+      "clay": [
+        29.7,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        23.17,
+        26.83
+      ],
+      "soil_moisture": [
+        71.31,
+        88.39
+      ],
+      "soil_ph": [
+        6.07,
+        7.38
+      ],
+      "rainfall": [
+        151.87,
+        196.68
+      ]
+    }
+  },
+  "kidneybeans": {
+    "common_name_es": "Frijol",
+    "cycle_days_min": 75,
+    "cycle_days_max": 95,
+    "cycle_days_avg": 85,
+    "depletion_fraction_p": 0.45,
+    "defaults_npk": {
+      "N": 22.0,
+      "P": 67.0,
+      "K": 20.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.6,
+        12.0
+      ],
+      "loamy_sand": [
+        11.2,
+        15.0
+      ],
+      "sandy_loam": [
+        17.6,
+        23.0
+      ],
+      "loam": [
+        19.1,
+        25.0
+      ],
+      "silt_loam": [
+        22.7,
+        29.0
+      ],
+      "clay": [
+        29.7,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        15.79,
+        24.33
+      ],
+      "soil_moisture": [
+        18.29,
+        24.91
+      ],
+      "soil_ph": [
+        5.52,
+        5.97
+      ],
+      "rainfall": [
+        63.35,
+        143.87
+      ]
+    }
+  },
+  "lentil": {
+    "common_name_es": "Lenteja",
+    "cycle_days_min": 95,
+    "cycle_days_max": 115,
+    "cycle_days_avg": 105,
+    "depletion_fraction_p": 0.5,
+    "defaults_npk": {
+      "N": 16.5,
+      "P": 68.0,
+      "K": 19.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.2,
+        12.0
+      ],
+      "loamy_sand": [
+        10.8,
+        15.0
+      ],
+      "sandy_loam": [
+        17.0,
+        23.0
+      ],
+      "loam": [
+        18.5,
+        25.0
+      ],
+      "silt_loam": [
+        22.0,
+        29.0
+      ],
+      "clay": [
+        29.0,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        18.43,
+        29.22
+      ],
+      "soil_moisture": [
+        60.47,
+        69.41
+      ],
+      "soil_ph": [
+        6.06,
+        7.73
+      ],
+      "rainfall": [
+        36.08,
+        53.32
+      ]
+    }
+  },
+  "maize": {
+    "common_name_es": "Maíz",
+    "cycle_days_min": 95,
+    "cycle_days_max": 120,
+    "cycle_days_avg": 107,
+    "depletion_fraction_p": 0.55,
+    "defaults_npk": {
+      "N": 76.0,
+      "P": 48.5,
+      "K": 20.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        7.9,
+        12.0
+      ],
+      "loamy_sand": [
+        10.3,
+        15.0
+      ],
+      "sandy_loam": [
+        16.4,
+        23.0
+      ],
+      "loam": [
+        17.9,
+        25.0
+      ],
+      "silt_loam": [
+        21.3,
+        29.0
+      ],
+      "clay": [
+        28.3,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        18.28,
+        25.98
+      ],
+      "soil_moisture": [
+        56.5,
+        73.59
+      ],
+      "soil_ph": [
+        5.59,
+        6.87
+      ],
+      "rainfall": [
+        63.03,
+        108.52
+      ]
+    }
+  },
+  "mango": {
+    "common_name_es": "Mango",
+    "cycle_days_min": 150,
+    "cycle_days_max": 180,
+    "cycle_days_avg": 165,
+    "depletion_fraction_p": 0.5,
+    "defaults_npk": {
+      "N": 21.0,
+      "P": 27.5,
+      "K": 30.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.2,
+        12.0
+      ],
+      "loamy_sand": [
+        10.8,
+        15.0
+      ],
+      "sandy_loam": [
+        17.0,
+        23.0
+      ],
+      "loam": [
+        18.5,
+        25.0
+      ],
+      "silt_loam": [
+        22.0,
+        29.0
+      ],
+      "clay": [
+        29.0,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        27.35,
+        35.54
+      ],
+      "soil_moisture": [
+        45.56,
+        54.4
+      ],
+      "soil_ph": [
+        4.67,
+        6.82
+      ],
+      "rainfall": [
+        89.97,
+        100.22
+      ]
+    }
+  },
+  "mothbeans": {
+    "common_name_es": "Frijol polilla",
+    "cycle_days_min": 70,
+    "cycle_days_max": 90,
+    "cycle_days_avg": 80,
+    "depletion_fraction_p": 0.45,
+    "defaults_npk": {
+      "N": 22.0,
+      "P": 48.5,
+      "K": 20.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.6,
+        12.0
+      ],
+      "loamy_sand": [
+        11.2,
+        15.0
+      ],
+      "sandy_loam": [
+        17.6,
+        23.0
+      ],
+      "loam": [
+        19.1,
+        25.0
+      ],
+      "silt_loam": [
+        22.7,
+        29.0
+      ],
+      "clay": [
+        29.7,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        24.47,
+        31.23
+      ],
+      "soil_moisture": [
+        41.8,
+        63.05
+      ],
+      "soil_ph": [
+        3.69,
+        9.41
+      ],
+      "rainfall": [
+        32.67,
+        72.22
+      ]
+    }
+  },
+  "mungbean": {
+    "common_name_es": "Frijol mungo",
+    "cycle_days_min": 65,
+    "cycle_days_max": 80,
+    "cycle_days_avg": 72,
+    "depletion_fraction_p": 0.45,
+    "defaults_npk": {
+      "N": 22.0,
+      "P": 47.0,
+      "K": 20.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.6,
+        12.0
+      ],
+      "loamy_sand": [
+        11.2,
+        15.0
+      ],
+      "sandy_loam": [
+        17.6,
+        23.0
+      ],
+      "loam": [
+        19.1,
+        25.0
+      ],
+      "silt_loam": [
+        22.7,
+        29.0
+      ],
+      "clay": [
+        29.7,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        27.11,
+        29.87
+      ],
+      "soil_moisture": [
+        80.45,
+        89.72
+      ],
+      "soil_ph": [
+        6.27,
+        7.17
+      ],
+      "rainfall": [
+        37.23,
+        58.55
+      ]
+    }
+  },
+  "muskmelon": {
+    "common_name_es": "Melón",
+    "cycle_days_min": 75,
+    "cycle_days_max": 90,
+    "cycle_days_avg": 82,
+    "depletion_fraction_p": 0.4,
+    "defaults_npk": {
+      "N": 100.0,
+      "P": 18.0,
+      "K": 50.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        9.0,
+        12.0
+      ],
+      "loamy_sand": [
+        11.6,
+        15.0
+      ],
+      "sandy_loam": [
+        18.2,
+        23.0
+      ],
+      "loam": [
+        19.8,
+        25.0
+      ],
+      "silt_loam": [
+        23.4,
+        29.0
+      ],
+      "clay": [
+        30.4,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        27.11,
+        29.87
+      ],
+      "soil_moisture": [
+        90.33,
+        94.79
+      ],
+      "soil_ph": [
+        6.04,
+        6.74
+      ],
+      "rainfall": [
+        20.76,
+        28.99
+      ]
+    }
+  },
+  "orange": {
+    "common_name_es": "Naranja",
+    "cycle_days_min": 240,
+    "cycle_days_max": 300,
+    "cycle_days_avg": 270,
+    "depletion_fraction_p": 0.5,
+    "defaults_npk": {
+      "N": 19.0,
+      "P": 16.0,
+      "K": 10.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.2,
+        12.0
+      ],
+      "loamy_sand": [
+        10.8,
+        15.0
+      ],
+      "sandy_loam": [
+        17.0,
+        23.0
+      ],
+      "loam": [
+        18.5,
+        25.0
+      ],
+      "silt_loam": [
+        22.0,
+        29.0
+      ],
+      "clay": [
+        29.0,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        11.02,
+        34.08
+      ],
+      "soil_moisture": [
+        90.15,
+        94.55
+      ],
+      "soil_ph": [
+        6.12,
+        7.86
+      ],
+      "rainfall": [
+        101.15,
+        119.04
+      ]
+    }
+  },
+  "papaya": {
+    "common_name_es": "Papaya",
+    "cycle_days_min": 240,
+    "cycle_days_max": 300,
+    "cycle_days_avg": 270,
+    "depletion_fraction_p": 0.4,
+    "defaults_npk": {
+      "N": 49.0,
+      "P": 60.0,
+      "K": 50.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        9.0,
+        12.0
+      ],
+      "loamy_sand": [
+        11.6,
+        15.0
+      ],
+      "sandy_loam": [
+        18.2,
+        23.0
+      ],
+      "loam": [
+        19.8,
+        25.0
+      ],
+      "silt_loam": [
+        23.4,
+        29.0
+      ],
+      "clay": [
+        30.4,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        23.68,
+        42.94
+      ],
+      "soil_moisture": [
+        90.2,
+        94.64
+      ],
+      "soil_ph": [
+        6.52,
+        6.99
+      ],
+      "rainfall": [
+        50.96,
+        240.49
+      ]
+    }
+  },
+  "pigeonpeas": {
+    "common_name_es": "Gandul",
+    "cycle_days_min": 150,
+    "cycle_days_max": 180,
+    "cycle_days_avg": 165,
+    "depletion_fraction_p": 0.5,
+    "defaults_npk": {
+      "N": 20.0,
+      "P": 69.5,
+      "K": 20.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.2,
+        12.0
+      ],
+      "loamy_sand": [
+        10.8,
+        15.0
+      ],
+      "sandy_loam": [
+        17.0,
+        23.0
+      ],
+      "loam": [
+        18.5,
+        25.0
+      ],
+      "silt_loam": [
+        22.0,
+        29.0
+      ],
+      "clay": [
+        29.0,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        19.03,
+        36.21
+      ],
+      "soil_moisture": [
+        32.45,
+        66.71
+      ],
+      "soil_ph": [
+        4.67,
+        7.17
+      ],
+      "rainfall": [
+        94.4,
+        195.58
+      ]
+    }
+  },
+  "pomegranate": {
+    "common_name_es": "Granada",
+    "cycle_days_min": 180,
+    "cycle_days_max": 240,
+    "cycle_days_avg": 210,
+    "depletion_fraction_p": 0.5,
+    "defaults_npk": {
+      "N": 18.0,
+      "P": 20.0,
+      "K": 40.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        8.2,
+        12.0
+      ],
+      "loamy_sand": [
+        10.8,
+        15.0
+      ],
+      "sandy_loam": [
+        17.0,
+        23.0
+      ],
+      "loam": [
+        18.5,
+        25.0
+      ],
+      "silt_loam": [
+        22.0,
+        29.0
+      ],
+      "clay": [
+        29.0,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        18.4,
+        24.82
+      ],
+      "soil_moisture": [
+        85.55,
+        94.64
+      ],
+      "soil_ph": [
+        5.68,
+        7.13
+      ],
+      "rainfall": [
+        102.86,
+        111.98
+      ]
+    }
+  },
+  "rice": {
+    "common_name_es": "Arroz",
+    "cycle_days_min": 110,
+    "cycle_days_max": 140,
+    "cycle_days_avg": 125,
+    "depletion_fraction_p": 0.2,
+    "defaults_npk": {
+      "N": 80.0,
+      "P": 47.0,
+      "K": 40.0
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        10.5,
+        12.0
+      ],
+      "loamy_sand": [
+        13.3,
+        15.0
+      ],
+      "sandy_loam": [
+        20.6,
+        23.0
+      ],
+      "loam": [
+        22.4,
+        25.0
+      ],
+      "silt_loam": [
+        26.2,
+        29.0
+      ],
+      "clay": [
+        33.2,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        20.28,
+        26.73
+      ],
+      "soil_moisture": [
+        80.28,
+        84.6
+      ],
+      "soil_ph": [
+        5.11,
+        7.63
+      ],
+      "rainfall": [
+        185.2,
+        290.71
+      ]
+    }
+  },
+  "watermelon": {
+    "common_name_es": "Sandía",
+    "cycle_days_min": 75,
+    "cycle_days_max": 90,
+    "cycle_days_avg": 82,
+    "depletion_fraction_p": 0.4,
+    "defaults_npk": {
+      "N": 99.0,
+      "P": 17.5,
+      "K": 50.5
+    },
+    "fao56_moisture_by_texture": {
+      "sand": [
+        9.0,
+        12.0
+      ],
+      "loamy_sand": [
+        11.6,
+        15.0
+      ],
+      "sandy_loam": [
+        18.2,
+        23.0
+      ],
+      "loam": [
+        19.8,
+        25.0
+      ],
+      "silt_loam": [
+        23.4,
+        29.0
+      ],
+      "clay": [
+        30.4,
+        36.0
+      ]
+    },
+    "ranges": {
+      "soil_temperature": [
+        24.29,
+        26.82
+      ],
+      "soil_moisture": [
+        80.45,
+        89.64
+      ],
+      "soil_ph": [
+        6.07,
+        6.93
+      ],
+      "rainfall": [
+        41.15,
+        58.99
+      ]
+    }
+  }
+}
